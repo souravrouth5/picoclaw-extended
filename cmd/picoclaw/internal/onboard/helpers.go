@@ -1,6 +1,7 @@
 package onboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -76,13 +77,19 @@ func onboard(encrypt bool) {
 		os.Exit(1)
 	}
 
+	// Patch the saved config to include the providers section with a placeholder
+	// so users can see exactly where to add their OpenRouter key.
+	if !configExists {
+		injectProvidersPlaceholder(configPath)
+	}
+
 	workspace := cfg.WorkspacePath()
 	createWorkspaceTemplates(workspace)
 
-	fmt.Printf("\n%s picoclaw is ready!\n", internal.Logo)
+	fmt.Printf("\n%s picoclaw extended is ready!\n", internal.Logo)
 	fmt.Println("\nNext steps:")
 	if encrypt {
-		fmt.Println("  1. Set your encryption passphrase before starting picoclaw:")
+		fmt.Println("  1. Set your encryption passphrase before starting:")
 		fmt.Println("       export PICOCLAW_KEY_PASSPHRASE=<your-passphrase>   # Linux/macOS")
 		fmt.Println("       set PICOCLAW_KEY_PASSPHRASE=<your-passphrase>      # Windows cmd")
 		fmt.Println("")
@@ -91,13 +98,20 @@ func onboard(encrypt bool) {
 		fmt.Println("  1. Add your API key to", configPath)
 	}
 	fmt.Println("")
-	fmt.Println("     Recommended:")
-	fmt.Println("     - OpenRouter: https://openrouter.ai/keys (access 100+ models)")
-	fmt.Println("     - Ollama:     https://ollama.com (local, free)")
+	fmt.Println("     Zero-config option (recommended):")
+	fmt.Println("     Add your OpenRouter key to providers.openrouter.api_key")
+	fmt.Println("     → Free models are fetched and ranked automatically")
+	fmt.Println("     → Best coding/large-context model is selected as default")
+	fmt.Println("     → Fallbacks wired in order: Tier 3 > Tier 2 > Tier 1")
+	fmt.Println("     Get a free key: https://openrouter.ai/keys")
 	fmt.Println("")
-	fmt.Println("     See README.md for 17+ supported providers.")
+	fmt.Println("     Model tiers (auto-ranked):")
+	fmt.Println("     Tier 3 — Large-context coding models (64K+ context)")
+	fmt.Println("     Tier 2 — Coding-focused models")
+	fmt.Println("     Tier 1 — General purpose models (sorted by context length)")
 	fmt.Println("")
-	fmt.Println("  3. Chat: picoclaw agent -m \"Hello!\"")
+	fmt.Println("  2. Chat: picoclaw agent -m \"Hello!\"")
+	fmt.Println("  3. Connect a chat app: see README.md for Telegram, Discord, WhatsApp setup")
 }
 
 // promptPassphrase reads the encryption passphrase twice from the terminal
@@ -160,6 +174,30 @@ func createWorkspaceTemplates(workspace string) {
 	if err != nil {
 		fmt.Printf("Error copying workspace templates: %v\n", err)
 	}
+}
+
+// injectProvidersPlaceholder reads the saved config JSON and adds a
+// providers.openrouter.api_key placeholder so users see exactly where
+// to put their key without having to add the section manually.
+func injectProvidersPlaceholder(configPath string) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return
+	}
+	// Only inject if providers section is missing or null
+	if v, ok := raw["providers"]; ok && string(v) != "null" {
+		return
+	}
+	raw["providers"] = json.RawMessage(`{"openrouter":{"api_key":""}}`)
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(configPath, out, 0o600)
 }
 
 func copyEmbeddedToTarget(targetDir string) error {
