@@ -87,8 +87,7 @@ picoclawx.exe onboard
 ```bash
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-arm64.tar.gz
 tar xzf picoclaw-linux-arm64.tar.gz
-pkg install proot
-termux-chroot ./picoclawx onboard
+./picoclawx onboard
 ```
 
 ---
