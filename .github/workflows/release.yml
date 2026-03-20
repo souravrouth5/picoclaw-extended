@@ -57,20 +57,24 @@ jobs:
           cd build
           for f in picoclaw-*; do
             [[ "$f" == *.tar.gz ]] && continue
+            [[ "$f" == *.zip ]] && continue
             if [[ "$f" == *.exe ]]; then
-              zip "${f%.exe}.zip" "$f"
+              cp "$f" picoclawx.exe
+              zip "${f%.exe}.zip" picoclawx.exe
+              rm picoclawx.exe
             else
-              tar czf "${f}.tar.gz" "$f"
+              cp "$f" picoclawx
+              tar czf "${f}.tar.gz" picoclawx
+              rm picoclawx
             fi
           done
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: build/*.tar.gz,build/*.zip
-          draft: false
-          prerelease: false
-          make_latest: true
+        run: |
+          TAG=${{ github.event.inputs.tag || github.ref_name }}
+          gh release create "$TAG" build/*.tar.gz build/*.zip \
+            --title "$TAG" \
+            --latest \
+            --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

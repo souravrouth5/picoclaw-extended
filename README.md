@@ -55,8 +55,7 @@ Alternatively, download the binary for your platform from the [GitHub Releases](
 ```bash
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-amd64.tar.gz
 tar xzf picoclaw-linux-amd64.tar.gz
-mv picoclaw-linux-amd64 picoclaw
-./picoclaw onboard
+./picoclawx onboard
 ```
 
 ### Linux ARM64 (Raspberry Pi, etc.)
@@ -64,8 +63,7 @@ mv picoclaw-linux-amd64 picoclaw
 ```bash
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-arm64.tar.gz
 tar xzf picoclaw-linux-arm64.tar.gz
-mv picoclaw-linux-arm64 picoclaw
-./picoclaw onboard
+./picoclawx onboard
 ```
 
 ### macOS ARM64 (Apple Silicon)
@@ -73,8 +71,7 @@ mv picoclaw-linux-arm64 picoclaw
 ```bash
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-darwin-arm64.tar.gz
 tar xzf picoclaw-darwin-arm64.tar.gz
-mv picoclaw-darwin-arm64 picoclaw
-./picoclaw onboard
+./picoclawx onboard
 ```
 
 ### Windows
@@ -82,7 +79,7 @@ mv picoclaw-darwin-arm64 picoclaw
 Download `picoclaw-windows-amd64.zip` from the [Releases](https://github.com/souravrouth5/picoclaw-extended/releases/latest) page, extract, and run:
 
 ```cmd
-picoclaw-windows-amd64.exe onboard
+picoclawx.exe onboard
 ```
 
 ### Termux (Android)
@@ -91,7 +88,7 @@ picoclaw-windows-amd64.exe onboard
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-arm64.tar.gz
 tar xzf picoclaw-linux-arm64.tar.gz
 pkg install proot
-termux-chroot ./picoclaw-linux-arm64 onboard
+termux-chroot ./picoclawx onboard
 ```
 
 ---
@@ -101,7 +98,7 @@ termux-chroot ./picoclaw-linux-arm64 onboard
 **1. Run onboard**
 
 ```bash
-./picoclaw onboard
+./picoclawx onboard
 ```
 
 **2. Open the config file and add your OpenRouter API key**
@@ -139,7 +136,7 @@ Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) — no credit
 **3. Chat**
 
 ```bash
-./picoclaw agent -m "Hello!"
+./picoclawx agent -m "Hello!"
 ```
 
 That's it. On first run, the assistant automatically:
@@ -167,14 +164,14 @@ The top-ranked model becomes `or-free-default` and is used automatically. All ot
 To see which models were selected, run:
 
 ```bash
-./picoclaw status
+./picoclawx status
 ```
 
 ---
 
 ## 💬 Chat Channels
 
-Connect the assistant to messaging apps by running `./picoclaw gateway` after configuring a channel below.
+Connect the assistant to messaging apps by running `./picoclawx gateway` after configuring a channel below.
 
 | Channel | Difficulty | Notes |
 |---------|-----------|-------|
@@ -193,7 +190,9 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 - Open Telegram, search `@BotFather`
 - Send `/newbot`, follow prompts, copy the token
 
-**2. Get your user ID** from `@userinfobot` on Telegram
+**2. Get your user ID**
+- Open Telegram, search `@userinfobot` and start it
+- It will reply with your numeric user ID (e.g. `123456789`)
 
 **3. Open config and add the telegram section**
 
@@ -222,14 +221,16 @@ Add or update the `channels.telegram` block:
 }
 ```
 
+> `allow_from` restricts the bot to only respond to your user ID. Without it the bot is open to anyone — always set this.
+
 **4. Start gateway**
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 </details>
@@ -273,16 +274,18 @@ notepad $env:USERPROFILE\.picoclaw\config.json
 }
 ```
 
+> `allow_from` restricts the bot to only respond to your user ID. Without it the bot responds to everyone in any server it's added to.
+
 **5. Invite the bot** via OAuth2 → URL Generator → Scopes: `bot` → Permissions: `Send Messages`, `Read Message History`
 
 **6. Start gateway**
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 > To respond only when @mentioned: add `"group_trigger": { "mention_only": true }` to the discord config.
@@ -321,10 +324,10 @@ notepad $env:USERPROFILE\.picoclaw\config.json
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 On first run a QR code prints in the terminal. Scan it with WhatsApp → Linked Devices. Session is saved automatically after that.
@@ -367,10 +370,10 @@ notepad $env:USERPROFILE\.picoclaw\config.json
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 </details>
@@ -419,10 +422,10 @@ Set webhook URL in LINE console to `https://your-ngrok-url/webhook/line`
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 </details>
@@ -462,10 +465,10 @@ notepad $env:USERPROFILE\.picoclaw\config.json
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 </details>
@@ -506,10 +509,10 @@ notepad $env:USERPROFILE\.picoclaw\config.json
 
 ```bash
 # Linux / macOS / Termux
-./picoclaw gateway
+./picoclawx gateway
 
 # Windows
-picoclaw-windows-amd64.exe gateway
+picoclawx.exe gateway
 ```
 
 </details>
@@ -520,16 +523,16 @@ picoclaw-windows-amd64.exe gateway
 
 | Command | Description |
 |---------|-------------|
-| `picoclaw onboard` | Initialize config & workspace |
-| `picoclaw agent -m "..."` | One-shot chat |
-| `picoclaw agent` | Interactive chat mode |
-| `picoclaw gateway` | Start gateway (for chat channels) |
-| `picoclaw status` | Show status and active models |
-| `picoclaw version` | Show version info |
-| `picoclaw cron list` | List scheduled jobs |
-| `picoclaw cron add ...` | Add a scheduled job |
-| `picoclaw skills list` | List installed skills |
-| `picoclaw skills install` | Install a skill |
+| `picoclawx onboard` | Initialize config & workspace |
+| `picoclawx agent -m "..."` | One-shot chat |
+| `picoclawx agent` | Interactive chat mode |
+| `picoclawx gateway` | Start gateway (for chat channels) |
+| `picoclawx status` | Show status and active models |
+| `picoclawx version` | Show version info |
+| `picoclawx cron list` | List scheduled jobs |
+| `picoclawx cron add ...` | Add a scheduled job |
+| `picoclawx skills list` | List installed skills |
+| `picoclawx skills install` | Install a skill |
 
 ---
 
