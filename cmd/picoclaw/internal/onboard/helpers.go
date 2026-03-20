@@ -110,7 +110,7 @@ func onboard(encrypt bool) {
 	fmt.Println("     Tier 2 — Coding-focused models")
 	fmt.Println("     Tier 1 — General purpose models (sorted by context length)")
 	fmt.Println("")
-	fmt.Println("  2. Chat: picoclaw agent -m \"Hello!\"")
+	fmt.Println("  2. Chat: picoclawx agent -m \"Hello!\"")
 	fmt.Println("  3. Connect a chat app: see README.md for Telegram, Discord, WhatsApp setup")
 }
 
@@ -193,7 +193,37 @@ func injectProvidersPlaceholder(configPath string) {
 		return
 	}
 	raw["providers"] = json.RawMessage(`{"openrouter":{"api_key":""}}`)
-	out, err := json.MarshalIndent(raw, "", "  ")
+
+	// Inject placeholder tokens for the most common channels so users
+	// see exactly what fields to fill in.
+	if ch, ok := raw["channels"]; ok {
+		var channels map[string]json.RawMessage
+		if json.Unmarshal(ch, &channels) == nil {
+			if tg, ok := channels["telegram"]; ok {
+				var tgMap map[string]json.RawMessage
+				if json.Unmarshal(tg, &tgMap) == nil {
+					tgMap["token"] = json.RawMessage(`"YOUR_BOT_TOKEN"`)
+					tgMap["allow_from"] = json.RawMessage(`["YOUR_TELEGRAM_USER_ID"]`)
+					if b, err := json.Marshal(tgMap); err == nil {
+						channels["telegram"] = b
+					}
+				}
+			}
+			if dc, ok := channels["discord"]; ok {
+				var dcMap map[string]json.RawMessage
+				if json.Unmarshal(dc, &dcMap) == nil {
+					dcMap["token"] = json.RawMessage(`"YOUR_BOT_TOKEN"`)
+					dcMap["allow_from"] = json.RawMessage(`["YOUR_DISCORD_USER_ID"]`)
+					if b, err := json.Marshal(dcMap); err == nil {
+						channels["discord"] = b
+					}
+				}
+			}
+			if b, err := json.Marshal(channels); err == nil {
+				raw["channels"] = b
+			}
+		}
+	}	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return
 	}
