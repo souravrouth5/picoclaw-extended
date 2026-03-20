@@ -37,26 +37,27 @@ Everything else (channels, tools, MCP, skills) is identical to upstream PicoClaw
 
 ## 📦 Install
 
-### Linux / macOS / Termux (Android)
+### Linux x86_64 (most desktops/servers)
 
 ```bash
-# Linux ARM64 (Raspberry Pi, Android via Termux, etc.)
-wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-arm64.tar.gz
-tar xzf picoclaw-linux-arm64.tar.gz
-mv picoclaw-linux-arm64 picoclaw
-./picoclaw onboard
-```
-
-```bash
-# Linux x86_64 (most desktops/servers)
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-amd64.tar.gz
 tar xzf picoclaw-linux-amd64.tar.gz
 mv picoclaw-linux-amd64 picoclaw
 ./picoclaw onboard
 ```
 
+### Linux ARM64 (Raspberry Pi, etc.)
+
 ```bash
-# macOS ARM64 (Apple Silicon)
+wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-linux-arm64.tar.gz
+tar xzf picoclaw-linux-arm64.tar.gz
+mv picoclaw-linux-arm64 picoclaw
+./picoclaw onboard
+```
+
+### macOS ARM64 (Apple Silicon)
+
+```bash
 wget https://github.com/souravrouth5/picoclaw-extended/releases/latest/download/picoclaw-darwin-arm64.tar.gz
 tar xzf picoclaw-darwin-arm64.tar.gz
 mv picoclaw-darwin-arm64 picoclaw
@@ -90,7 +91,9 @@ termux-chroot ./picoclaw-linux-arm64 onboard
 ./picoclaw onboard
 ```
 
-**2. Add your OpenRouter API key** to `~/.picoclaw/config.json`:
+**2. Open the config file and add your OpenRouter API key**
+
+The `providers` section is already there after onboard — just fill in your key:
 
 ```json
 {
@@ -100,6 +103,22 @@ termux-chroot ./picoclaw-linux-arm64 onboard
     }
   }
 }
+```
+
+Open the config file with:
+
+```bash
+# Linux / macOS
+nano ~/.picoclaw/config.json
+
+# Termux (Android)
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
 ```
 
 Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) — no credit card needed for free models.
@@ -163,7 +182,20 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 
 **2. Get your user ID** from `@userinfobot` on Telegram
 
-**3. Add to `~/.picoclaw/config.json`**
+**3. Open config and add the telegram section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
+
+Add or update the `channels.telegram` block:
 
 ```json
 {
@@ -180,7 +212,11 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 **4. Start gateway**
 
 ```bash
+# Linux / macOS / Termux
 ./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
 ```
 
 </details>
@@ -199,7 +235,18 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 - Discord Settings → Advanced → enable Developer Mode
 - Right-click your avatar → Copy User ID
 
-**4. Add to config**
+**4. Open config and add the discord section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
 
 ```json
 {
@@ -218,7 +265,11 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 **6. Start gateway**
 
 ```bash
+# Linux / macOS / Termux
 ./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
 ```
 
 > To respond only when @mentioned: add `"group_trigger": { "mention_only": true }` to the discord config.
@@ -227,6 +278,19 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 
 <details>
 <summary><b>WhatsApp</b></summary>
+
+**1. Open config and add the whatsapp section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
 
 ```json
 {
@@ -240,7 +304,17 @@ Connect the assistant to messaging apps by running `./picoclaw gateway` after co
 }
 ```
 
-Run `./picoclaw gateway` — on first run a QR code prints in the terminal. Scan it with WhatsApp → Linked Devices. Session is saved automatically after that.
+**2. Start gateway**
+
+```bash
+# Linux / macOS / Termux
+./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
+```
+
+On first run a QR code prints in the terminal. Scan it with WhatsApp → Linked Devices. Session is saved automatically after that.
 
 </details>
 
@@ -249,7 +323,18 @@ Run `./picoclaw gateway` — on first run a QR code prints in the terminal. Scan
 
 **1.** Create a bot account on any homeserver (e.g. matrix.org) and get its access token
 
-**2. Add to config**
+**2. Open config and add the matrix section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
 
 ```json
 {
@@ -265,7 +350,15 @@ Run `./picoclaw gateway` — on first run a QR code prints in the terminal. Scan
 }
 ```
 
-**3.** Run `./picoclaw gateway`
+**3. Start gateway**
+
+```bash
+# Linux / macOS / Termux
+./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
+```
 
 </details>
 
@@ -274,7 +367,18 @@ Run `./picoclaw gateway` — on first run a QR code prints in the terminal. Scan
 
 **1.** Go to [LINE Developers Console](https://developers.line.biz/) → Create Messaging API channel → copy Channel Secret and Channel Access Token
 
-**2. Add to config**
+**2. Open config and add the line section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
 
 ```json
 {
@@ -298,7 +402,15 @@ ngrok http 18790
 
 Set webhook URL in LINE console to `https://your-ngrok-url/webhook/line`
 
-**4.** Run `./picoclaw gateway`
+**4. Start gateway**
+
+```bash
+# Linux / macOS / Termux
+./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
+```
 
 </details>
 
@@ -307,7 +419,18 @@ Set webhook URL in LINE console to `https://your-ngrok-url/webhook/line`
 
 **1.** Go to [DingTalk Open Platform](https://open.dingtalk.com/) → Create internal app → copy Client ID and Client Secret
 
-**2. Add to config**
+**2. Open config and add the dingtalk section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
 
 ```json
 {
@@ -322,7 +445,15 @@ Set webhook URL in LINE console to `https://your-ngrok-url/webhook/line`
 }
 ```
 
-**3.** Run `./picoclaw gateway`
+**3. Start gateway**
+
+```bash
+# Linux / macOS / Termux
+./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
+```
 
 </details>
 
@@ -331,7 +462,18 @@ Set webhook URL in LINE console to `https://your-ngrok-url/webhook/line`
 
 **1.** Go to WeCom Admin Console → AI Bot → Create new AI Bot → copy Bot ID and Secret
 
-**2. Add to config**
+**2. Open config and add the wecom_aibot section**
+
+```bash
+# Linux / macOS / Termux
+nano ~/.picoclaw/config.json
+
+# Windows (Command Prompt)
+notepad %USERPROFILE%\.picoclaw\config.json
+
+# Windows (PowerShell)
+notepad $env:USERPROFILE\.picoclaw\config.json
+```
 
 ```json
 {
@@ -347,7 +489,15 @@ Set webhook URL in LINE console to `https://your-ngrok-url/webhook/line`
 }
 ```
 
-**3.** Run `./picoclaw gateway`
+**3. Start gateway**
+
+```bash
+# Linux / macOS / Termux
+./picoclaw gateway
+
+# Windows
+picoclaw-windows-amd64.exe gateway
+```
 
 </details>
 
