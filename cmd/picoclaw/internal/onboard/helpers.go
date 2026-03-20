@@ -223,7 +223,8 @@ func injectProvidersPlaceholder(configPath string) {
 				raw["channels"] = b
 			}
 		}
-	}	out, err := json.MarshalIndent(raw, "", "  ")
+	}
+	out, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return
 	}
