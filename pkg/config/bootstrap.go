@@ -81,6 +81,21 @@ func injectFreeModels(cfg *Config, models []ormodels.ModelInfo, apiKey string) {
 
 	cfg.ModelList = append(entries, cfg.ModelList...)
 	cfg.Agents.Defaults.ModelName = orFreeDefaultAlias
+
+	// Disable media tools if no free model supports vision/image input.
+	// Sending images or files to a text-only model produces an API error.
+	hasVision := false
+	for _, m := range models {
+		if m.SupportsVision {
+			hasVision = true
+			break
+		}
+	}
+	if !hasVision {
+		cfg.Tools.SendFile.Enabled = false
+		cfg.Tools.ReadFile.Enabled = false
+		fmt.Fprintf(os.Stderr, "picoclaw: no free vision models available — send_file and read_file tools disabled\n")
+	}
 }
 
 func runBootstrap(cfg *Config) {

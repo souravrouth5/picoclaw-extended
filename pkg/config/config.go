@@ -891,6 +891,14 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Trim whitespace from api keys — users often paste keys with a trailing newline.
+	cfg.Providers.OpenRouter.APIKey = strings.TrimSpace(cfg.Providers.OpenRouter.APIKey)
+	cfg.Providers.Anthropic.APIKey = strings.TrimSpace(cfg.Providers.Anthropic.APIKey)
+	cfg.Providers.OpenAI.APIKey = strings.TrimSpace(cfg.Providers.OpenAI.APIKey)
+	for i := range cfg.ModelList {
+		cfg.ModelList[i].APIKey = strings.TrimSpace(cfg.ModelList[i].APIKey)
+	}
+
 	if passphrase := credential.PassphraseProvider(); passphrase != "" {
 		for _, m := range cfg.ModelList {
 			if m.APIKey != "" && !strings.HasPrefix(m.APIKey, "enc://") && !strings.HasPrefix(m.APIKey, "file://") {

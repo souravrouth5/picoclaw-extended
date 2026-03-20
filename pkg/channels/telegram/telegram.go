@@ -108,6 +108,15 @@ func (c *TelegramChannel) Start(ctx context.Context) error {
 
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
+	// Drain any pending updates that arrived while the gateway was offline
+	// so we don't replay a backlog of messages on startup.
+	pending, err := c.bot.GetUpdates(c.ctx, &telego.GetUpdatesParams{Timeout: 0, Limit: 100})
+	if err == nil && len(pending) > 0 {
+		lastID := pending[len(pending)-1].UpdateID
+		_, _ = c.bot.GetUpdates(c.ctx, &telego.GetUpdatesParams{Offset: lastID + 1, Limit: 1, Timeout: 0})
+		logger.InfoCF("telegram", "Skipped pending updates", map[string]any{"count": len(pending)})
+	}
+
 	updates, err := c.bot.UpdatesViaLongPolling(c.ctx, &telego.GetUpdatesParams{
 		Timeout: 30,
 	})

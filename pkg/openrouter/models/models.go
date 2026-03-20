@@ -24,11 +24,12 @@ const (
 
 // ModelInfo is the subset of the OpenRouter /models response we care about.
 type ModelInfo struct {
-	ID            string
-	Name          string
-	ContextLength int
-	IsFree        bool
-	Tier          int
+	ID             string
+	Name           string
+	ContextLength  int
+	IsFree         bool
+	Tier           int
+	SupportsVision bool
 }
 
 type openRouterModelsResponse struct {
@@ -39,6 +40,9 @@ type openRouterModelsResponse struct {
 		Pricing       struct {
 			Prompt string `json:"prompt"`
 		} `json:"pricing"`
+		Architecture struct {
+			Modality string `json:"modality"`
+		} `json:"architecture"`
 	} `json:"data"`
 }
 
@@ -77,11 +81,12 @@ func FetchFreeModels(apiKey string) ([]ModelInfo, error) {
 			continue
 		}
 		free = append(free, ModelInfo{
-			ID:            m.ID,
-			Name:          m.Name,
-			ContextLength: m.ContextLength,
-			IsFree:        true,
-			Tier:          Classify(m.ID, m.Name, m.ContextLength),
+			ID:             m.ID,
+			Name:           m.Name,
+			ContextLength:  m.ContextLength,
+			IsFree:         true,
+			Tier:           Classify(m.ID, m.Name, m.ContextLength),
+			SupportsVision: strings.Contains(m.Architecture.Modality, "image"),
 		})
 	}
 
