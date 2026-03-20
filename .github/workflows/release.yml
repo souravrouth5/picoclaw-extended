@@ -32,7 +32,7 @@ jobs:
         run: cp -r workspace cmd/picoclaw/internal/onboard/workspace
 
       - name: Build all platforms
-        run: make build-all
+        run: make build-whatsapp-native
 
       - name: Create release archives
         run: |
