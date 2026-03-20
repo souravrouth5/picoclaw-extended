@@ -953,6 +953,10 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Auto-populate free OpenRouter models when the user has an OR key but
+	// no active model configured. Non-fatal.
+	runBootstrap(cfg)
+
 	return cfg, nil
 }
 
