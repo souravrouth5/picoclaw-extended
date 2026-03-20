@@ -11,8 +11,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
-	"github.com/sipeed/picoclaw/cmd/picoclaw/internal"
 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal/agent"
 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal/auth"
 	"github.com/sipeed/picoclaw/cmd/picoclaw/internal/cron"
@@ -27,12 +27,12 @@ import (
 )
 
 func NewPicoclawCommand() *cobra.Command {
-	short := fmt.Sprintf("%s picoclaw - Personal AI Assistant v%s\n\n", internal.Logo, config.GetVersion())
-
 	cmd := &cobra.Command{
-		Use:     "picoclaw",
-		Short:   short,
-		Example: "picoclaw version",
+		Use:               "picoclawx",
+		Short:             fmt.Sprintf("PicoClaw Extended v%s — Zero-config AI Assistant", config.GetVersion()),
+		Example:           "picoclawx agent -m \"Hello!\"",
+		SilenceUsage:      true,
+		SilenceErrors:     true,
 	}
 
 	cmd.AddCommand(
@@ -52,20 +52,51 @@ func NewPicoclawCommand() *cobra.Command {
 }
 
 const (
-	colorBlue = "\033[1;38;2;62;93;185m"
-	colorRed  = "\033[1;38;2;213;70;70m"
-	banner    = "\r\n" +
-		colorBlue + "██████╗ ██╗ ██████╗ ██████╗ " + colorRed + " ██████╗██╗      █████╗ ██╗    ██╗\n" +
-		colorBlue + "██╔══██╗██║██╔════╝██╔═══██╗" + colorRed + "██╔════╝██║     ██╔══██╗██║    ██║\n" +
-		colorBlue + "██████╔╝██║██║     ██║   ██║" + colorRed + "██║     ██║     ███████║██║ █╗ ██║\n" +
-		colorBlue + "██╔═══╝ ██║██║     ██║   ██║" + colorRed + "██║     ██║     ██╔══██║██║███╗██║\n" +
-		colorBlue + "██║     ██║╚██████╗╚██████╔╝" + colorRed + "╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
-		colorBlue + "╚═╝     ╚═╝ ╚═════╝ ╚═════╝ " + colorRed + " ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n " +
-		"\033[0m\r\n"
+	colorBlue  = "\033[1;38;2;62;93;185m"
+	colorRed   = "\033[1;38;2;213;70;70m"
+	colorReset = "\033[0m"
+
+	// bannerWidth is the visible character width of each banner line (no ANSI codes).
+	bannerWidth = 76
 )
 
+// bannerFull is the full two-row block-letter banner (requires ≥76 cols).
+var bannerFull = "\r\n" +
+	colorBlue + "██████╗ ██╗ ██████╗ ██████╗ " + colorRed + " ██████╗██╗      █████╗ ██╗    ██╗\n" +
+	colorBlue + "██╔══██╗██║██╔════╝██╔═══██╗" + colorRed + "██╔════╝██║     ██╔══██╗██║    ██║\n" +
+	colorBlue + "██████╔╝██║██║     ██║   ██║" + colorRed + "██║     ██║     ███████║██║ █╗ ██║\n" +
+	colorBlue + "██╔═══╝ ██║██║     ██║   ██║" + colorRed + "██║     ██║     ██╔══██║██║███╗██║\n" +
+	colorBlue + "██║     ██║╚██████╗╚██████╔╝" + colorRed + "╚██████╗███████╗██║  ██║╚███╔███╔╝\n" +
+	colorBlue + "╚═╝     ╚═╝ ╚═════╝ ╚═════╝ " + colorRed + " ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝\n" +
+	colorBlue + "\n        ███████╗██╗  ██╗████████╗███████╗███╗   ██╗██████╗ ███████╗██████╗ \n" +
+	colorBlue + "        ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔══██╗██╔════╝██╔══██╗\n" +
+	colorRed + "        █████╗   ╚███╔╝    ██║   █████╗  ██╔██╗ ██║██║  ██║█████╗  ██║  ██║\n" +
+	colorRed + "        ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║██║  ██║██╔══╝  ██║  ██║\n" +
+	colorRed + "        ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║██████╔╝███████╗██████╔╝\n" +
+	colorRed + "        ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═════╝ \n" +
+	colorReset + "\r\n"
+
+func terminalWidth() int {
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		// Not a TTY (piped/redirected) or error — use a safe default.
+		return 80
+	}
+	return w
+}
+
+func printBanner() {
+	if terminalWidth() >= bannerWidth {
+		fmt.Print(bannerFull)
+		return
+	}
+	// Narrow terminal: single compact line.
+	fmt.Printf("\r\n%sPicoClaw Extended%s — Personal AI Assistant v%s\r\n\r\n",
+		colorBlue, colorReset, config.GetVersion())
+}
+
 func main() {
-	fmt.Printf("%s", banner)
+	printBanner()
 	cmd := NewPicoclawCommand()
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)

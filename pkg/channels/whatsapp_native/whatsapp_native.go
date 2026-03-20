@@ -59,6 +59,7 @@ type WhatsAppNativeChannel struct {
 	reconnecting bool
 	stopping     atomic.Bool    // set once Stop begins; prevents new wg.Add calls
 	wg           sync.WaitGroup // tracks background goroutines (QR handler, reconnect)
+	startTime    time.Time      // messages older than this are backlog and ignored
 }
 
 // NewWhatsAppNativeChannel creates a WhatsApp channel that uses whatsmeow for connection.
@@ -128,6 +129,7 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 	// goroutines so that Stop() can cancel them at any time, including during
 	// the QR-login flow.
 	c.runCtx, c.runCancel = context.WithCancel(ctx)
+	c.startTime = time.Now()
 
 	client.AddEventHandler(c.eventHandler)
 
@@ -342,6 +344,10 @@ func (c *WhatsAppNativeChannel) reconnectWithBackoff() {
 
 func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	if evt.Message == nil {
+		return
+	}
+	// Skip messages that arrived before this gateway session started (backlog replay).
+	if evt.Info.Timestamp.Before(c.startTime) {
 		return
 	}
 	senderID := evt.Info.Sender.String()
