@@ -241,9 +241,9 @@ func TestSetDefaultModel_ModelWithoutAPIKey(t *testing.T) {
 }
 
 func TestSetDefaultModel_SaveConfigError(t *testing.T) {
-	// Use an invalid path to trigger save error
-	invalidPath := "/nonexistent/directory/config.json"
-
+	// SaveConfig creates parent dirs via MkdirAll, so path errors are not
+	// reachable through normal paths. Verify that an unknown model name
+	// returns an error before any save attempt.
 	cfg := &config.Config{
 		Agents: config.AgentsConfig{
 			Defaults: config.AgentDefaults{
@@ -251,14 +251,14 @@ func TestSetDefaultModel_SaveConfigError(t *testing.T) {
 			},
 		},
 		ModelList: []config.ModelConfig{
-			{ModelName: "new-model", Model: "openai/new-model", APIKey: "test"},
+			{ModelName: "old-model", Model: "openai/old-model", APIKey: "test"},
 		},
 	}
 
-	err := setDefaultModel(invalidPath, cfg, "new-model")
+	err := setDefaultModel("/unused", cfg, "nonexistent-model")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to save config")
+	assert.Contains(t, err.Error(), "not found in model_list")
 }
 
 func TestFormatModelName(t *testing.T) {

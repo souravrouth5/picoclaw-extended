@@ -10,7 +10,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 )
 
-// orAutoAlias is the special name users pass to switch back to OpenRouter auto-bootstrap.
 const orAutoAlias = "openrouter"
 
 func NewModelCommand() *cobra.Command {
@@ -35,18 +34,20 @@ Examples:
   picoclawx model list                   # list all configured models
   picoclawx model use my-gpt4o           # set my-gpt4o as default
   picoclawx model use openrouter         # switch to OpenRouter auto-bootstrap`,
-		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return fmt.Errorf("accepts at most 1 arg(s), received %d", len(args))
+			}
 			configPath := internal.GetConfigPath()
 			cfg, err := config.LoadConfig(configPath)
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 			if len(args) == 0 {
-				printCurrentModel(cfg)
+				showCurrentModel(cfg)
 				return nil
 			}
-			return useModel(configPath, cfg, args[0])
+			return setDefaultModel(configPath, cfg, args[0])
 		},
 	}
 
@@ -64,7 +65,7 @@ func newListCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
-			printModelList(cfg)
+			listAvailableModels(cfg)
 			return nil
 		},
 	}
@@ -74,30 +75,25 @@ func newUseCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "use <model_name>",
 		Short: "Set the default model",
-		Long: `Set the default model by its model_name from model_list.
-
-Use 'openrouter' to clear the default and let OpenRouter auto-bootstrap
-pick the best free model on next run.`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			configPath := internal.GetConfigPath()
 			cfg, err := config.LoadConfig(configPath)
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
-			return useModel(configPath, cfg, args[0])
+			return setDefaultModel(configPath, cfg, args[0])
 		},
 	}
 }
 
-// printCurrentModel shows the active default and the full model list.
-func printCurrentModel(cfg *config.Config) {
+func showCurrentModel(cfg *config.Config) {
 	current := cfg.Agents.Defaults.GetModelName()
 	if current == "" {
-		fmt.Println("Default model: (none — OpenRouter auto-bootstrap will run on next start)")
+		fmt.Println("No default model is currently set.")
+		fmt.Println("OpenRouter auto-bootstrap will pick the best free model on next start.")
 	} else {
-		fmt.Printf("Default model: %s\n", current)
-		// Show the underlying model string if available
+		fmt.Printf("Current default model: %s\n", current)
 		for _, m := range cfg.ModelList {
 			if m.ModelName == current {
 				fmt.Printf("  → %s\n", m.Model)
@@ -106,86 +102,68 @@ func printCurrentModel(cfg *config.Config) {
 		}
 	}
 	fmt.Println()
-	printModelList(cfg)
+	fmt.Println("Available models in your config:")
+	listAvailableModels(cfg)
 }
 
-// printModelList prints all models from model_list, marking the active default.
-func printModelList(cfg *config.Config) {
+func listAvailableModels(cfg *config.Config) {
 	current := cfg.Agents.Defaults.GetModelName()
-	hasOR := cfg.Providers.OpenRouter.APIKey != ""
 
-	// Collect user-defined models (exclude bootstrap-injected entries)
 	type row struct {
-		name   string
-		model  string
-		hasKey bool
+		name  string
+		model string
 	}
 	var rows []row
 	seen := map[string]bool{}
 	for _, m := range cfg.ModelList {
-		if seen[m.ModelName] {
+		if seen[m.ModelName] || m.APIKey == "" {
 			continue
 		}
 		seen[m.ModelName] = true
-		rows = append(rows, row{m.ModelName, m.Model, m.APIKey != ""})
+		rows = append(rows, row{m.ModelName, m.Model})
 	}
 
-	if len(rows) == 0 && !hasOR {
-		fmt.Println("No models configured.")
+	if len(rows) == 0 {
+		fmt.Println("No models configured in model_list.")
 		fmt.Println("Add entries to model_list in config.json, or set providers.openrouter.api_key")
 		fmt.Println("for automatic free model selection.")
 		return
 	}
 
-	fmt.Println("Configured models:")
 	for _, r := range rows {
 		marker := "  "
 		if r.name == current {
-			marker = "▶ "
+			marker = "> "
 		}
-		keyStatus := ""
-		if !r.hasKey {
-			keyStatus = "  (no api_key)"
-		}
-		fmt.Printf("%s%-30s  %s%s\n", marker, r.name, r.model, keyStatus)
+		fmt.Printf("%s- %s (%s)\n", marker, r.name, r.model)
 	}
 
-	if hasOR {
+	if cfg.Providers.OpenRouter.APIKey != "" {
 		fmt.Println()
 		if current == "" {
-			fmt.Println("▶ openrouter  (auto-bootstrap active — best free model selected at startup)")
+			fmt.Println("> openrouter  (auto-bootstrap active)")
 		} else {
-			fmt.Println("  openrouter  (available — run 'model use openrouter' to switch)")
+			fmt.Println("  openrouter  (run 'model use openrouter' to switch)")
 		}
 	}
-
-	fmt.Println()
-	fmt.Println("Use 'picoclawx model use <name>' to change the default.")
 }
 
-// useModel validates and persists the new default model.
-func useModel(configPath string, cfg *config.Config, name string) error {
-	// Strip bootstrap entries before saving so they don't get persisted.
+func setDefaultModel(configPath string, cfg *config.Config, name string) error {
 	config.StripBootstrappedModels(cfg)
 
-	old := cfg.Agents.Defaults.GetModelName()
-	if old == "" {
-		old = "(openrouter auto)"
-	}
+	old := formatModelName(cfg.Agents.Defaults.GetModelName())
 
 	if strings.ToLower(name) == orAutoAlias {
-		// Clear model_name → bootstrap will run on next start
 		cfg.Agents.Defaults.ModelName = ""
 		cfg.Agents.Defaults.Model = ""
 		if err := save(configPath, cfg); err != nil {
 			return err
 		}
-		fmt.Printf("✓ Default model cleared (was: %s)\n", old)
-		fmt.Println("  OpenRouter auto-bootstrap will pick the best free model on next start.")
+		fmt.Printf("Default model cleared (was: %s)\n", old)
+		fmt.Println("OpenRouter auto-bootstrap will pick the best free model on next start.")
 		return nil
 	}
 
-	// Validate the name exists in model_list with an api_key
 	found := false
 	for _, m := range cfg.ModelList {
 		if m.ModelName == name {
@@ -197,9 +175,8 @@ func useModel(configPath string, cfg *config.Config, name string) error {
 		}
 	}
 	if !found {
-		fmt.Printf("Model %q not found in model_list. Available models:\n\n", name)
-		printModelList(cfg)
-		return fmt.Errorf("unknown model %q", name)
+		listAvailableModels(cfg)
+		return fmt.Errorf("model %q not found in model_list", name)
 	}
 
 	cfg.Agents.Defaults.ModelName = name
@@ -207,8 +184,15 @@ func useModel(configPath string, cfg *config.Config, name string) error {
 	if err := save(configPath, cfg); err != nil {
 		return err
 	}
-	fmt.Printf("✓ Default model: %s → %s\n", old, name)
+	fmt.Printf("Default model changed from '%s' to '%s'\n", old, name)
 	return nil
+}
+
+func formatModelName(name string) string {
+	if name == "" {
+		return "(none)"
+	}
+	return name
 }
 
 func save(configPath string, cfg *config.Config) error {

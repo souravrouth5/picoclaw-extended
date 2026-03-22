@@ -10,6 +10,8 @@ package common
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,29 +41,37 @@ type (
 const DefaultRequestTimeout = 120 * time.Second
 
 // NewHTTPClient creates an *http.Client with an optional proxy and the default timeout.
+// On systems with an empty or unavailable cert pool (e.g. Termux without ca-certificates),
+// TLS verification is skipped to allow HTTPS connections to succeed.
 func NewHTTPClient(proxy string) *http.Client {
-	client := &http.Client{
-		Timeout: DefaultRequestTimeout,
-	}
+	tr := baseTLSTransport()
 	if proxy != "" {
 		parsed, err := url.Parse(proxy)
 		if err == nil {
-			// Preserve http.DefaultTransport settings (TLS, HTTP/2, timeouts, etc.)
-			if base, ok := http.DefaultTransport.(*http.Transport); ok {
-				tr := base.Clone()
-				tr.Proxy = http.ProxyURL(parsed)
-				client.Transport = tr
-			} else {
-				// Fallback: minimal transport if DefaultTransport is not *http.Transport.
-				client.Transport = &http.Transport{
-					Proxy: http.ProxyURL(parsed),
-				}
-			}
+			tr.Proxy = http.ProxyURL(parsed)
 		} else {
 			log.Printf("common: invalid proxy URL %q: %v", proxy, err)
 		}
 	}
-	return client
+	return &http.Client{Timeout: DefaultRequestTimeout, Transport: tr}
+}
+
+// baseTLSTransport returns a transport that uses the system cert pool when
+// available and non-empty, falling back to InsecureSkipVerify (Termux, etc.).
+func baseTLSTransport() *http.Transport {
+	var tlsCfg *tls.Config
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil || pool.Equal(x509.NewCertPool()) {
+		tlsCfg = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+	} else {
+		tlsCfg = &tls.Config{RootCAs: pool}
+	}
+	if base, ok := http.DefaultTransport.(*http.Transport); ok {
+		tr := base.Clone()
+		tr.TLSClientConfig = tlsCfg
+		return tr
+	}
+	return &http.Transport{TLSClientConfig: tlsCfg}
 }
 
 // --- Message serialization ---

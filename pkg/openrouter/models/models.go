@@ -110,10 +110,11 @@ func FetchFreeModels(apiKey string) ([]ModelInfo, error) {
 // cannot be loaded (e.g. Termux without ca-certificates installed).
 func newHTTPClient() *http.Client {
 	transport := &http.Transport{}
-	if pool, err := x509.SystemCertPool(); err == nil && pool != nil {
-		transport.TLSClientConfig = &tls.Config{RootCAs: pool}
-	} else {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil || pool.Equal(x509.NewCertPool()) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+	} else {
+		transport.TLSClientConfig = &tls.Config{RootCAs: pool}
 	}
 	return &http.Client{Timeout: 15 * time.Second, Transport: transport}
 }
