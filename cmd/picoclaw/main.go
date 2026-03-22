@@ -46,6 +46,7 @@ func NewPicoclawCommand() *cobra.Command {
 		skills.NewSkillsCommand(),
 		model.NewModelCommand(),
 		version.NewVersionCommand(),
+		NewMCPCommand(),
 	)
 
 	return cmd
