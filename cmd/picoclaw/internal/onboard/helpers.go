@@ -1,11 +1,11 @@
 package onboard
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/term"
 
@@ -63,12 +63,14 @@ func onboard(encrypt bool) {
 
 	var cfg *config.Config
 	if configExists {
-		// Preserve the existing config; SaveConfig will re-encrypt api_keys with the new passphrase.
+		// Load existing config but strip any runtime-injected bootstrap entries
+		// before saving, so re-running onboard doesn't permanently write them to disk.
 		cfg, err = config.LoadConfig(configPath)
 		if err != nil {
 			fmt.Printf("Error loading existing config: %v\n", err)
 			os.Exit(1)
 		}
+		config.StripBootstrappedModels(cfg)
 	} else {
 		cfg = config.DefaultConfig()
 	}
@@ -77,11 +79,9 @@ func onboard(encrypt bool) {
 		os.Exit(1)
 	}
 
-	// Patch the saved config to include the providers section with a placeholder
-	// so users can see exactly where to add their OpenRouter key.
-	if !configExists {
-		injectProvidersPlaceholder(configPath)
-	}
+	// Always inject the providers placeholder so users see where to add their
+	// OpenRouter key — both on first run and on subsequent onboard runs.
+	injectProvidersPlaceholder(configPath)
 
 	workspace := cfg.WorkspacePath()
 	createWorkspaceTemplates(workspace)
@@ -176,73 +176,33 @@ func createWorkspaceTemplates(workspace string) {
 	}
 }
 
-// injectProvidersPlaceholder reads the saved config JSON and adds a
-// providers.openrouter.api_key placeholder so users see exactly where
-// to put their key without having to add the section manually.
+// injectProvidersPlaceholder reads the saved config JSON and replaces the
+// null providers value with a placeholder so users see exactly where to put
+// their OpenRouter key. Uses string replacement to preserve field ordering
+// produced by Config.MarshalJSON.
 func injectProvidersPlaceholder(configPath string) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return
 	}
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return
-	}
-	// Only inject if providers section is missing or null
-	if v, ok := raw["providers"]; ok && string(v) != "null" {
-		return
-	}
-	raw["providers"] = json.RawMessage(`{"openrouter":{"api_key":""}}`)
-
-	// Inject a model_list example so users can see the structure and fill in their own keys.
-	// The example entry is intentionally non-functional (empty api_key) so it doesn't interfere
-	// with the auto-bootstrap, but shows every field a user might need.
-	if ml, ok := raw["model_list"]; !ok || string(ml) == "null" || string(ml) == "[]" {
-		raw["model_list"] = json.RawMessage(`[
-    {
-      "model_name": "",
-      "model": "",
-      "api_key": "",
-	  "api_base": ""
+	s := string(data)
+	// Replace `"providers": null` with the placeholder block.
+	// MarshalJSON omits providers when IsEmpty(), so it won't appear at all
+	// for a fresh DefaultConfig (OpenAI.WebSearch=true but no keys → IsEmpty=true).
+	// We look for the model_list key as an anchor and insert providers before it.
+	const providerPlaceholder = `"providers": {
+    "openrouter": {
+      "api_key": ""
     }
-  ]`)
+  },
+  `
+	if strings.Contains(s, `"providers": null`) {
+		s = strings.Replace(s, `"providers": null`, strings.TrimRight(providerPlaceholder, ",\n "), 1)
+	} else if !strings.Contains(s, `"providers"`) {
+		// providers was omitted entirely — insert before model_list
+		s = strings.Replace(s, `"model_list"`, providerPlaceholder+`"model_list"`, 1)
 	}
-
-	// Inject placeholder tokens for the most common channels so users
-	// see exactly what fields to fill in.
-	if ch, ok := raw["channels"]; ok {
-		var channels map[string]json.RawMessage
-		if json.Unmarshal(ch, &channels) == nil {
-			if tg, ok := channels["telegram"]; ok {
-				var tgMap map[string]json.RawMessage
-				if json.Unmarshal(tg, &tgMap) == nil {
-					tgMap["token"] = json.RawMessage(`"YOUR_BOT_TOKEN"`)
-					tgMap["allow_from"] = json.RawMessage(`["YOUR_TELEGRAM_USER_ID"]`)
-					if b, err := json.Marshal(tgMap); err == nil {
-						channels["telegram"] = b
-					}
-				}
-			}
-			if dc, ok := channels["discord"]; ok {
-				var dcMap map[string]json.RawMessage
-				if json.Unmarshal(dc, &dcMap) == nil {
-					dcMap["token"] = json.RawMessage(`"YOUR_BOT_TOKEN"`)
-					dcMap["allow_from"] = json.RawMessage(`["YOUR_DISCORD_USER_ID"]`)
-					if b, err := json.Marshal(dcMap); err == nil {
-						channels["discord"] = b
-					}
-				}
-			}
-			if b, err := json.Marshal(channels); err == nil {
-				raw["channels"] = b
-			}
-		}
-	}
-	out, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return
-	}
-	_ = os.WriteFile(configPath, out, 0o600)
+	_ = os.WriteFile(configPath, []byte(s), 0o600)
 }
 
 func copyEmbeddedToTarget(targetDir string) error {

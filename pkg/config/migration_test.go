@@ -162,16 +162,18 @@ func TestConvertProvidersToModelList_AllProviders(t *testing.T) {
 			Qwen:          ProviderConfig{APIKey: "key17"},
 			Mistral:       ProviderConfig{APIKey: "key18"},
 			Avian:         ProviderConfig{APIKey: "key19"},
+			Minimax:       ProviderConfig{APIKey: "key-minimax"},
 			LongCat:       ProviderConfig{APIKey: "key-longcat"},
 			ModelScope:    ProviderConfig{APIKey: "key-modelscope"},
+			Novita:        ProviderConfig{APIKey: "key-novita"},
 		},
 	}
 
 	result := ConvertProvidersToModelList(cfg)
 
-	// All 23 providers should be converted
-	if len(result) != 23 {
-		t.Errorf("len(result) = %d, want 23", len(result))
+	// All 25 providers should be converted
+	if len(result) != 25 {
+		t.Errorf("len(result) = %d, want 25", len(result))
 	}
 }
 

@@ -80,16 +80,17 @@ type Config struct {
 	Agents    AgentsConfig    `json:"agents"`
 	Bindings  []AgentBinding  `json:"bindings,omitempty"`
 	Session   SessionConfig   `json:"session,omitempty"`
-	Channels  ChannelsConfig  `json:"channels"`
+	// BuildInfo is near the top so users see the version when opening the file.
+	BuildInfo BuildInfo       `json:"build_info,omitempty"`
+	// Providers (legacy shorthand) and ModelList are next — the most-edited sections.
 	Providers ProvidersConfig `json:"providers,omitempty"`
-	ModelList []ModelConfig   `json:"model_list"` // New model-centric provider configuration
+	ModelList []ModelConfig   `json:"model_list"`
+	Channels  ChannelsConfig  `json:"channels"`
 	Gateway   GatewayConfig   `json:"gateway"`
 	Tools     ToolsConfig     `json:"tools"`
 	Heartbeat HeartbeatConfig `json:"heartbeat"`
 	Devices   DevicesConfig   `json:"devices"`
 	Voice     VoiceConfig     `json:"voice"`
-	// BuildInfo contains build-time version information
-	BuildInfo BuildInfo `json:"build_info,omitempty"`
 }
 
 // BuildInfo contains build-time version information
@@ -100,29 +101,61 @@ type BuildInfo struct {
 	GoVersion string `json:"go_version"`
 }
 
-// MarshalJSON implements custom JSON marshaling for Config
-// to omit providers section when empty and session when empty
+// MarshalJSON implements custom JSON marshaling for Config.
+// It controls field order in the output JSON and omits empty optional sections.
+// Desired order: agents → bindings → session → build_info → providers → model_list → channels → gateway → tools → heartbeat → devices → voice
 func (c Config) MarshalJSON() ([]byte, error) {
-	type Alias Config
-	aux := &struct {
-		Providers *ProvidersConfig `json:"providers,omitempty"`
-		Session   *SessionConfig   `json:"session,omitempty"`
-		*Alias
-	}{
-		Alias: (*Alias)(&c),
+	// Use an ordered map approach via a slice of key/value pairs written manually.
+	// We build a raw JSON object field by field to guarantee output order.
+	type orderedField struct {
+		key string
+		val any
 	}
 
-	// Only include providers if not empty
-	if !c.Providers.IsEmpty() {
-		aux.Providers = &c.Providers
+	fields := []orderedField{
+		{"agents", c.Agents},
 	}
-
-	// Only include session if not empty
+	if len(c.Bindings) > 0 {
+		fields = append(fields, orderedField{"bindings", c.Bindings})
+	}
 	if c.Session.DMScope != "" || len(c.Session.IdentityLinks) > 0 {
-		aux.Session = &c.Session
+		fields = append(fields, orderedField{"session", c.Session})
 	}
+	if c.BuildInfo.Version != "" {
+		fields = append(fields, orderedField{"build_info", c.BuildInfo})
+	}
+	if !c.Providers.IsEmpty() {
+		fields = append(fields, orderedField{"providers", c.Providers})
+	}
+	fields = append(fields,
+		orderedField{"model_list", c.ModelList},
+		orderedField{"channels", c.Channels},
+		orderedField{"gateway", c.Gateway},
+		orderedField{"tools", c.Tools},
+		orderedField{"heartbeat", c.Heartbeat},
+		orderedField{"devices", c.Devices},
+		orderedField{"voice", c.Voice},
+	)
 
-	return json.Marshal(aux)
+	buf := []byte{'{'}
+	for i, f := range fields {
+		key, err := json.Marshal(f.key)
+		if err != nil {
+			return nil, err
+		}
+		val, err := json.Marshal(f.val)
+		if err != nil {
+			return nil, err
+		}
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, key...)
+		buf = append(buf, ':')
+		buf = append(buf, val...)
+	}
+	buf = append(buf, '}')
+	return buf, nil
 }
 
 type AgentsConfig struct {
@@ -1197,7 +1230,10 @@ func MergeAPIKeys(apiKey string, apiKeys []string) []string {
 //   - {"model_name": "gpt-4__key_1", "api_key": "k2"}
 //   - {"model_name": "gpt-4__key_2", "api_key": "k3"}
 func ExpandMultiKeyModels(models []ModelConfig) []ModelConfig {
-	var expanded []ModelConfig
+	if models == nil {
+		return nil
+	}
+	expanded := make([]ModelConfig, 0, len(models))
 
 	for _, m := range models {
 		keys := MergeAPIKeys(m.APIKey, m.APIKeys)

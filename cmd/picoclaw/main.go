@@ -77,12 +77,14 @@ var bannerFull = "\r\n" +
 	colorReset + "\r\n"
 
 func terminalWidth() int {
-	w, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w <= 0 {
-		// Not a TTY (piped/redirected) or error — use a safe default.
-		return 80
+	// Try stdout first, then stderr (Termux may not have stdout as a TTY).
+	for _, f := range []*os.File{os.Stdout, os.Stderr} {
+		if w, _, err := term.GetSize(int(f.Fd())); err == nil && w > 0 {
+			return w
+		}
 	}
-	return w
+	// Not a TTY (piped/redirected) — use a safe default.
+	return 80
 }
 
 func printBanner() {
@@ -91,7 +93,7 @@ func printBanner() {
 		return
 	}
 	// Narrow terminal: single compact line.
-	fmt.Printf("\r\n%sPicoClaw Extended%s — Personal AI Assistant v%s\r\n\r\n",
+	fmt.Printf("\r\n%sPicoClaw Extended%s — Personal AI Assistant %s\r\n\r\n",
 		colorBlue, colorReset, config.GetVersion())
 }
 

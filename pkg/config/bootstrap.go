@@ -10,6 +10,37 @@ import (
 
 const orFreeDefaultAlias = "or-free-default"
 
+// StripBootstrappedModels removes any model_list entries that were injected
+// at runtime by the OpenRouter bootstrap. Call this before saving config to disk
+// so re-running onboard doesn't permanently write bootstrap entries.
+func StripBootstrappedModels(cfg *Config) {
+	// Collect the set of bootstrap-injected model names by finding or-free-default
+	// and its declared fallbacks.
+	bootstrap := make(map[string]bool)
+	for _, m := range cfg.ModelList {
+		if m.ModelName == orFreeDefaultAlias {
+			bootstrap[orFreeDefaultAlias] = true
+			for _, fb := range m.Fallbacks {
+				bootstrap[fb] = true
+			}
+			break
+		}
+	}
+	if len(bootstrap) == 0 {
+		return
+	}
+	filtered := cfg.ModelList[:0]
+	for _, m := range cfg.ModelList {
+		if !bootstrap[m.ModelName] {
+			filtered = append(filtered, m)
+		}
+	}
+	cfg.ModelList = filtered
+	if cfg.Agents.Defaults.ModelName == orFreeDefaultAlias {
+		cfg.Agents.Defaults.ModelName = ""
+	}
+}
+
 func bootstrapOpenRouter(cfg *Config) error {
 	apiKey := resolveOpenRouterKey(cfg)
 	if apiKey == "" {

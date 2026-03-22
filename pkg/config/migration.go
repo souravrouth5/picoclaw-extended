@@ -425,6 +425,40 @@ func ConvertProvidersToModelList(cfg *Config) []ModelConfig {
 			},
 		},
 		{
+			providerNames: []string{"minimax"},
+			protocol:      "minimax",
+			buildConfig: func(p ProvidersConfig) (ModelConfig, bool) {
+				if p.Minimax.APIKey == "" && p.Minimax.APIBase == "" {
+					return ModelConfig{}, false
+				}
+				return ModelConfig{
+					ModelName:      "minimax",
+					Model:          "minimax/abab6.5s-chat",
+					APIKey:         p.Minimax.APIKey,
+					APIBase:        p.Minimax.APIBase,
+					Proxy:          p.Minimax.Proxy,
+					RequestTimeout: p.Minimax.RequestTimeout,
+				}, true
+			},
+		},
+		{
+			providerNames: []string{"novita"},
+			protocol:      "novita",
+			buildConfig: func(p ProvidersConfig) (ModelConfig, bool) {
+				if p.Novita.APIKey == "" && p.Novita.APIBase == "" {
+					return ModelConfig{}, false
+				}
+				return ModelConfig{
+					ModelName:      "novita",
+					Model:          "novita/meta-llama/llama-3.1-70b-instruct",
+					APIKey:         p.Novita.APIKey,
+					APIBase:        p.Novita.APIBase,
+					Proxy:          p.Novita.Proxy,
+					RequestTimeout: p.Novita.RequestTimeout,
+				}, true
+			},
+		},
+		{
 			providerNames: []string{"modelscope"},
 			protocol:      "modelscope",
 			buildConfig: func(p ProvidersConfig) (ModelConfig, bool) {
