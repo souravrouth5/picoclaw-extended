@@ -1,9 +1,7 @@
 <div align="center">
 
   <h1>PicoClaw Extended: Zero-Config AI Assistant</h1>
-  <h1>PicoClaw Extended: Zero-Config AI Assistant</h1>
 
-  <h3>One API Key · Auto Free Models · $10 Hardware · &lt;10MB RAM</h3>
   <h3>One API Key · Auto Free Models · $10 Hardware · &lt;10MB RAM</h3>
   <p>
     <img src="https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
@@ -25,22 +23,6 @@
 > **PicoClaw Extended** is a fork of [PicoClaw](https://github.com/sipeed/picoclaw) with one key addition: **zero-config model management**. Set your OpenRouter API key once — the assistant automatically fetches the best free models, ranks them by capability, and sets up fallbacks. No manual `model_list` editing ever needed.
 > **PicoClaw Extended** is a fork of [PicoClaw](https://github.com/sipeed/picoclaw) with one key addition: **zero-config model management**. Set your OpenRouter API key once — the assistant automatically fetches the best free models, ranks them by capability, and sets up fallbacks. No manual `model_list` editing ever needed.
 
-## ✨ What's Different from PicoClaw
-
-🆓 **Auto Free Models**: Set one OpenRouter key → automatically fetches all free models from OpenRouter, picks the best coding/large-context model as default, wires fallbacks.
-
-🧠 **Smart Model Ranking**: Free models are classified into tiers:
-- **Tier 3 (Large Context Coding)** — coding models with 64K+ context (e.g. `deepseek-coder`, `qwen-coder` with 128K context)
-- **Tier 2 (Coding)** — coding-focused models under 64K context
-- **Tier 1 (General)** — general purpose models, sorted by context length
-
-The best available model is always used first, with automatic fallback through the ranked list if it fails or becomes paid.
-
-🔄 **Paid Model Detection**: If a free model starts charging, it's automatically removed from the pool at runtime — no config changes needed.
-
-Everything else (channels, tools, MCP, skills) is identical to upstream PicoClaw.
-
----
 ## ✨ What's Different from PicoClaw
 
 🆓 **Auto Free Models**: Set one OpenRouter key → automatically fetches all free models from OpenRouter, picks the best coding/large-context model as default, wires fallbacks.
@@ -116,12 +98,8 @@ tar xzf picoclaw-linux-arm64.tar.gz
 
 ```bash
 ./picoclawx onboard
-./picoclawx onboard
 ```
 
-**2. Open the config file and add your OpenRouter API key**
-
-The `providers` section is already there after onboard — just fill in your key:
 **2. Open the config file and add your OpenRouter API key**
 
 The `providers` section is already there after onboard — just fill in your key:
@@ -131,14 +109,13 @@ The `providers` section is already there after onboard — just fill in your key
   "providers": {
     "openrouter": {
       "api_key": "sk-or-your-key-here"
-  "providers": {
-    "openrouter": {
-      "api_key": "sk-or-your-key-here"
     }
   }
 }
 ```
 
+Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) — no credit card needed for free models.
+
 Open the config file with:
 
 ```bash
@@ -155,30 +132,11 @@ notepad %USERPROFILE%\.picoclaw\config.json
 notepad $env:USERPROFILE\.picoclaw\config.json
 ```
 
-Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) — no credit card needed for free models.
-Open the config file with:
 
-```bash
-# Linux / macOS
-nano ~/.picoclaw/config.json
 
-# Termux (Android)
-nano ~/.picoclaw/config.json
-
-# Windows (Command Prompt)
-notepad %USERPROFILE%\.picoclaw\config.json
-
-# Windows (PowerShell)
-notepad $env:USERPROFILE\.picoclaw\config.json
-```
-
-Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) — no credit card needed for free models.
-
-**3. Chat**
 **3. Chat**
 
 ```bash
-./picoclawx agent -m "Hello!"
 ./picoclawx agent -m "Hello!"
 ```
 
