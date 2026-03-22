@@ -215,6 +215,7 @@ func NewMatrixChannel(cfg config.MatrixConfig, messageBus *bus.MessageBus) (*Mat
 		cfg,
 		messageBus,
 		cfg.AllowFrom,
+		channels.WithAdminList(cfg.AdminFrom),
 		channels.WithMaxMessageLength(65536),
 		channels.WithGroupTrigger(cfg.GroupTrigger),
 		channels.WithReasoningChannelID(cfg.ReasoningChannelID),

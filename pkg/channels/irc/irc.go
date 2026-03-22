@@ -34,6 +34,7 @@ func NewIRCChannel(cfg config.IRCConfig, messageBus *bus.MessageBus) (*IRCChanne
 	}
 
 	base := channels.NewBaseChannel("irc", cfg, messageBus, cfg.AllowFrom,
+		channels.WithAdminList(cfg.AdminFrom),
 		channels.WithMaxMessageLength(400),
 		channels.WithGroupTrigger(cfg.GroupTrigger),
 		channels.WithReasoningChannelID(cfg.ReasoningChannelID),

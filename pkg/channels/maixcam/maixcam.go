@@ -38,6 +38,7 @@ func NewMaixCamChannel(cfg config.MaixCamConfig, bus *bus.MessageBus) (*MaixCamC
 		cfg,
 		bus,
 		cfg.AllowFrom,
+		channels.WithAdminList(cfg.AdminFrom),
 		channels.WithReasoningChannelID(cfg.ReasoningChannelID),
 	)
 

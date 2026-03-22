@@ -98,6 +98,7 @@ type oneBotMessageSegment struct {
 
 func NewOneBotChannel(cfg config.OneBotConfig, messageBus *bus.MessageBus) (*OneBotChannel, error) {
 	base := channels.NewBaseChannel("onebot", cfg, messageBus, cfg.AllowFrom,
+		channels.WithAdminList(cfg.AdminFrom),
 		channels.WithGroupTrigger(cfg.GroupTrigger),
 		channels.WithReasoningChannelID(cfg.ReasoningChannelID),
 	)

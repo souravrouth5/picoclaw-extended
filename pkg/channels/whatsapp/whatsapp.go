@@ -34,6 +34,7 @@ func NewWhatsAppChannel(cfg config.WhatsAppConfig, bus *bus.MessageBus) (*WhatsA
 		cfg,
 		bus,
 		cfg.AllowFrom,
+		channels.WithAdminList(cfg.AdminFrom),
 		channels.WithMaxMessageLength(65536),
 		channels.WithReasoningChannelID(cfg.ReasoningChannelID),
 	)

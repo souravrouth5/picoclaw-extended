@@ -65,6 +65,14 @@ func WithMaxMessageLength(n int) BaseChannelOption {
 	return func(c *BaseChannel) { c.maxMessageLength = n }
 }
 
+// WithAdminList sets the admin sender list for a channel.
+// Senders in this list get IsAdmin=true on their messages, enabling full tool access.
+// Senders in allow_from but not admin_from get IsAdmin=false — they can chat but
+// system-level tools (shell, filesystem, spawn, etc.) are disabled for them.
+func WithAdminList(adminList []string) BaseChannelOption {
+	return func(c *BaseChannel) { c.adminList = adminList }
+}
+
 // WithGroupTrigger sets the group trigger configuration for a channel.
 func WithGroupTrigger(gt config.GroupTriggerConfig) BaseChannelOption {
 	return func(c *BaseChannel) { c.groupTrigger = gt }
@@ -88,6 +96,7 @@ type BaseChannel struct {
 	running             atomic.Bool
 	name                string
 	allowList           []string
+	adminList           []string
 	maxMessageLength    int
 	groupTrigger        config.GroupTriggerConfig
 	mediaStore          media.MediaStore
@@ -159,6 +168,21 @@ func (c *BaseChannel) ShouldRespondInGroup(isMentioned bool, content string) (bo
 
 	// No group_trigger configured → permissive (respond to all)
 	return true, strings.TrimSpace(content)
+}
+
+// IsAdminSender returns true when the sender is in the admin list.
+// When the admin list is empty, all allowed senders are treated as admins
+// (backward-compatible: existing configs without admin_from get full access).
+func (c *BaseChannel) IsAdminSender(sender bus.SenderInfo) bool {
+	if len(c.adminList) == 0 {
+		return true
+	}
+	for _, allowed := range c.adminList {
+		if identity.MatchAllowed(sender, allowed) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *BaseChannel) Name() string {
@@ -258,6 +282,8 @@ func (c *BaseChannel) HandleMessage(
 		resolvedSenderID = sender.CanonicalID
 	}
 
+	isAdmin := c.IsAdminSender(sender)
+
 	scope := BuildMediaScope(c.name, chatID, messageID)
 
 	msg := bus.InboundMessage{
@@ -271,6 +297,7 @@ func (c *BaseChannel) HandleMessage(
 		MessageID:  messageID,
 		MediaScope: scope,
 		Metadata:   metadata,
+		IsAdmin:    isAdmin,
 	}
 
 	// Auto-trigger typing indicator, message reaction, and placeholder before publishing.

@@ -67,6 +67,7 @@ type processOptions struct {
 	EnableSummary     bool     // Whether to trigger summarization
 	SendResponse      bool     // Whether to send response via bus
 	NoHistory         bool     // If true, don't load session history (for heartbeat)
+	IsAdmin           bool     // If false, system-level tools are hidden from the LLM
 }
 
 const (
@@ -774,6 +775,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		DefaultResponse:   defaultResponse,
 		EnableSummary:     true,
 		SendResponse:      false,
+		IsAdmin:           msg.IsAdmin,
 	}
 
 	// context-dependent commands check their own Runtime fields and report
@@ -1067,6 +1069,13 @@ func (al *AgentLoop) runLLMIteration(
 
 		// Build tool definitions
 		providerToolDefs := agent.Tools.ToProviderDefs()
+
+		// Hide system-level tools from non-admin senders.
+		// They still get LLM replies but cannot execute shell, filesystem,
+		// spawn, cron, i2c, or spi tools.
+		if !opts.IsAdmin {
+			providerToolDefs = filterSystemTools(providerToolDefs)
+		}
 
 		// Determine whether the provider's native web search should replace
 		// the client-side web_search tool for this request. Only enable when web
@@ -2118,6 +2127,36 @@ func filterClientWebSearch(tools []providers.ToolDefinition) []providers.ToolDef
 		result = append(result, t)
 	}
 	return result
+}
+
+// filterSystemTools removes system-level tools from the tool list for non-admin senders.
+// Non-admins can still chat with the LLM but cannot trigger shell execution,
+// filesystem writes, process spawning, or hardware access.
+var systemToolNames = map[string]bool{
+	"exec":          true,
+	"shell":         true,
+	"write_file":    true,
+	"append_file":   true,
+	"edit_file":     true,
+	"spawn":         true,
+	"spawn_status":  true,
+	"cron_add":      true,
+	"cron_remove":   true,
+	"cron_list":     true,
+	"i2c_read":      true,
+	"i2c_write":     true,
+	"spi_transfer":  true,
+	"install_skill": true,
+}
+
+func filterSystemTools(defs []providers.ToolDefinition) []providers.ToolDefinition {
+	out := make([]providers.ToolDefinition, 0, len(defs))
+	for _, d := range defs {
+		if !systemToolNames[d.Function.Name] {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // Helper to extract provider from registry for cleanup
