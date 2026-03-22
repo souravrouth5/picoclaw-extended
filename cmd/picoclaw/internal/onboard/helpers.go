@@ -194,6 +194,20 @@ func injectProvidersPlaceholder(configPath string) {
 	}
 	raw["providers"] = json.RawMessage(`{"openrouter":{"api_key":""}}`)
 
+	// Inject a model_list example so users can see the structure and fill in their own keys.
+	// The example entry is intentionally non-functional (empty api_key) so it doesn't interfere
+	// with the auto-bootstrap, but shows every field a user might need.
+	if ml, ok := raw["model_list"]; !ok || string(ml) == "null" || string(ml) == "[]" {
+		raw["model_list"] = json.RawMessage(`[
+    {
+      "model_name": "",
+      "model": "",
+      "api_key": "",
+	  "api_base": ""
+    }
+  ]`)
+	}
+
 	// Inject placeholder tokens for the most common channels so users
 	// see exactly what fields to fill in.
 	if ch, ok := raw["channels"]; ok {

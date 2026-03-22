@@ -765,69 +765,120 @@ picoclawx.exe gateway
 
 ## 🔧 Manual Model Configuration
 
-If you want to use a specific paid model instead of auto free models, add it to `model_list` and set `model_name`:
+To use a specific model instead of auto free models, add it to `model_list` and set `agents.defaults.model_name`. The auto-bootstrap is skipped when `model_name` resolves to a valid entry.
+
+The `model` field uses a `protocol/model-id` format. `model_name` is your local alias — use it in `model_name` to activate it.
+
+<details>
+<summary><b>Cloud models (OpenAI, Anthropic, Gemini, DeepSeek, etc.)</b></summary>
 
 ```json
 {
-  "agents": {
-    "defaults": {
-      "model_name": "my-model"
-    }
-  },
+  "agents": { "defaults": { "model_name": "my-gpt4o" } },
   "model_list": [
     {
-      "model_name": "my-model",
+      "model_name": "my-gpt4o",
       "model": "openai/gpt-4o",
-      "api_key": "sk-your-key"
+      "api_key": "sk-your-openai-key"
+    },
+    {
+      "model_name": "my-claude",
+      "model": "anthropic/claude-sonnet-4-5",
+      "api_key": "sk-ant-your-anthropic-key"
+    },
+    {
+      "model_name": "my-gemini",
+      "model": "gemini/gemini-2.0-flash",
+      "api_key": "your-gemini-api-key"
+    },
+    {
+      "model_name": "my-deepseek",
+      "model": "deepseek/deepseek-chat",
+      "api_key": "your-deepseek-api-key"
     }
   ]
 }
 ```
 
-The auto-bootstrap is skipped when `model_name` is set and resolves to a valid entry.
+> `api_base` is optional for all known cloud providers — the correct endpoint is inferred automatically from the protocol prefix (`openai/`, `anthropic/`, `gemini/`, `deepseek/`, etc.).
 
----
+</details>
 
-## 🤝 Credits
-
-Built on top of [PicoClaw](https://github.com/sipeed/picoclaw) by [Sipeed](https://sipeed.com). This fork adds zero-config OpenRouter model management.
-| Command | Description |
-|---------|-------------|
-| `picoclawx onboard` | Initialize config & workspace |
-| `picoclawx agent -m "..."` | One-shot chat |
-| `picoclawx agent` | Interactive chat mode |
-| `picoclawx gateway` | Start gateway (for chat channels) |
-| `picoclawx status` | Show status and active models |
-| `picoclawx version` | Show version info |
-| `picoclawx cron list` | List scheduled jobs |
-| `picoclawx cron add ...` | Add a scheduled job |
-| `picoclawx skills list` | List installed skills |
-| `picoclawx skills install` | Install a skill |
-
----
-
-## 🔧 Manual Model Configuration
-
-If you want to use a specific paid model instead of auto free models, add it to `model_list` and set `model_name`:
+<details>
+<summary><b>OpenRouter (specific paid model)</b></summary>
 
 ```json
 {
-  "agents": {
-    "defaults": {
-      "model_name": "my-model"
-    }
-  },
+  "agents": { "defaults": { "model_name": "my-or-model" } },
   "model_list": [
     {
-      "model_name": "my-model",
-      "model": "openai/gpt-4o",
-      "api_key": "sk-your-key"
+      "model_name": "my-or-model",
+      "model": "openai/anthropic/claude-sonnet-4-5",
+      "api_key": "sk-or-your-openrouter-key",
+      "api_base": "https://openrouter.ai/api/v1"
     }
   ]
 }
 ```
 
-The auto-bootstrap is skipped when `model_name` is set and resolves to a valid entry.
+</details>
+
+<details>
+<summary><b>Local models (Ollama, LM Studio, vLLM)</b></summary>
+
+```json
+{
+  "agents": { "defaults": { "model_name": "local-llama" } },
+  "model_list": [
+    {
+      "_comment": "Ollama — run: ollama pull llama3.2",
+      "model_name": "local-llama",
+      "model": "openai/llama3.2",
+      "api_key": "ollama",
+      "api_base": "http://localhost:11434/v1"
+    },
+    {
+      "_comment": "LM Studio — load a model in the app first",
+      "model_name": "lmstudio-model",
+      "model": "openai/local-model",
+      "api_key": "lm-studio",
+      "api_base": "http://localhost:1234/v1"
+    },
+    {
+      "_comment": "vLLM — replace model-id with your served model",
+      "model_name": "vllm-model",
+      "model": "openai/your-model-id",
+      "api_key": "vllm",
+      "api_base": "http://localhost:8000/v1"
+    }
+  ]
+}
+```
+
+> `api_key` can be any non-empty string for local servers that don't validate it.
+
+</details>
+
+<details>
+<summary><b>Custom / self-hosted (LiteLLM proxy, any OpenAI-compatible endpoint)</b></summary>
+
+```json
+{
+  "agents": { "defaults": { "model_name": "my-proxy" } },
+  "model_list": [
+    {
+      "model_name": "my-proxy",
+      "model": "openai/your-model-name",
+      "api_key": "your-proxy-key",
+      "api_base": "https://your-proxy.example.com/v1"
+    }
+  ]
+}
+```
+
+> Any server that speaks the OpenAI chat completions API works — just point `api_base` at it and use the `openai/` prefix.
+
+</details>
 
 ---
 
