@@ -5,6 +5,8 @@ package models
 
 import (
 	"cmp"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -58,7 +60,7 @@ func FetchFreeModels(apiKey string) ([]ModelInfo, error) {
 	}
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := newHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("openrouter models fetch: %w", err)
@@ -101,6 +103,19 @@ func FetchFreeModels(apiKey string) ([]ModelInfo, error) {
 	})
 
 	return free, nil
+}
+
+// newHTTPClient returns an http.Client that uses the system cert pool when
+// available, and falls back to skipping TLS verification when the system pool
+// cannot be loaded (e.g. Termux without ca-certificates installed).
+func newHTTPClient() *http.Client {
+	transport := &http.Transport{}
+	if pool, err := x509.SystemCertPool(); err == nil && pool != nil {
+		transport.TLSClientConfig = &tls.Config{RootCAs: pool}
+	} else {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+	}
+	return &http.Client{Timeout: 15 * time.Second, Transport: transport}
 }
 
 // Classify assigns a tier based on model id/name and context length.
