@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/term"
 
@@ -81,7 +80,7 @@ func onboard(encrypt bool) {
 
 	// Always inject the providers placeholder so users see where to add their
 	// OpenRouter key — both on first run and on subsequent onboard runs.
-	injectProvidersPlaceholder(configPath)
+	config.InjectProvidersPlaceholder(configPath)
 
 	workspace := cfg.WorkspacePath()
 	createWorkspaceTemplates(workspace)
@@ -174,35 +173,6 @@ func createWorkspaceTemplates(workspace string) {
 	if err != nil {
 		fmt.Printf("Error copying workspace templates: %v\n", err)
 	}
-}
-
-// injectProvidersPlaceholder reads the saved config JSON and replaces the
-// null providers value with a placeholder so users see exactly where to put
-// their OpenRouter key. Uses string replacement to preserve field ordering
-// produced by Config.MarshalJSON.
-func injectProvidersPlaceholder(configPath string) {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return
-	}
-	s := string(data)
-	// Replace `"providers": null` with the placeholder block.
-	// MarshalJSON omits providers when IsEmpty(), so it won't appear at all
-	// for a fresh DefaultConfig (OpenAI.WebSearch=true but no keys → IsEmpty=true).
-	// We look for the model_list key as an anchor and insert providers before it.
-	const providerPlaceholder = `"providers": {
-    "openrouter": {
-      "api_key": ""
-    }
-  },
-  `
-	if strings.Contains(s, `"providers": null`) {
-		s = strings.Replace(s, `"providers": null`, strings.TrimRight(providerPlaceholder, ",\n "), 1)
-	} else if !strings.Contains(s, `"providers"`) {
-		// providers was omitted entirely — insert before model_list
-		s = strings.Replace(s, `"model_list"`, providerPlaceholder+`"model_list"`, 1)
-	}
-	_ = os.WriteFile(configPath, []byte(s), 0o600)
 }
 
 func copyEmbeddedToTarget(targetDir string) error {

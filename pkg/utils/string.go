@@ -1,10 +1,24 @@
 package utils
 
 import (
+	"html"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"unicode"
 )
+
+// detailsBlockRe matches an HTML <details>...</details> block including its content,
+// across multiple lines, with optional whitespace around the tags.
+var detailsBlockRe = regexp.MustCompile(`(?is)\s*<details[^>]*>.*?</details>\s*`)
+
+// StripHTMLArtifacts removes HTML <details> blocks and decodes HTML entities
+// (e.g. &lt; → <, &#39; → ') from LLM responses that embed raw HTML.
+func StripHTMLArtifacts(s string) string {
+	s = detailsBlockRe.ReplaceAllString(s, "")
+	s = html.UnescapeString(s)
+	return strings.TrimRight(s, "\n")
+}
 
 // Global variable to disable truncation
 var disableTruncation atomic.Bool

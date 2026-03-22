@@ -134,3 +134,27 @@ func runBootstrap(cfg *Config) {
 		fmt.Fprintf(os.Stderr, "picoclaw: openrouter bootstrap: %v\n", err)
 	}
 }
+
+// InjectProvidersPlaceholder reads the saved config JSON and ensures the
+// providers.openrouter.api_key placeholder is present so users see exactly
+// where to put their key. Safe to call after every SaveConfig — it is a
+// no-op when a real key is already written.
+func InjectProvidersPlaceholder(configPath string) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return
+	}
+	s := string(data)
+	const placeholder = `"providers": {
+    "openrouter": {
+      "api_key": ""
+    }
+  },
+  `
+	if strings.Contains(s, `"providers": null`) {
+		s = strings.Replace(s, `"providers": null`, strings.TrimRight(placeholder, ",\n "), 1)
+	} else if !strings.Contains(s, `"providers"`) {
+		s = strings.Replace(s, `"model_list"`, placeholder+`"model_list"`, 1)
+	}
+	_ = os.WriteFile(configPath, []byte(s), 0o600)
+}

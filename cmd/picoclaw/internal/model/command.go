@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -9,130 +10,211 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 )
 
-// LocalModel is a special model name that indicates that the model is local and with or without api_key.
-const LocalModel = "local-model"
+// orAutoAlias is the special name users pass to switch back to OpenRouter auto-bootstrap.
+const orAutoAlias = "openrouter"
 
 func NewModelCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "model [model_name]",
 		Short: "Show or change the default model",
-		Long: `Show or change the default model configuration.
+		Long: `Show or change the default model.
 
-If no argument is provided, shows the current default model.
-If a model name is provided, sets it as the default model.
+Without arguments, shows the current default model and all configured models.
+With a model name, sets it as the default (shorthand for 'model use <name>').
+
+Subcommands:
+  list          List all configured models
+  use <name>    Set the default model by name
+
+Special values for 'use':
+  openrouter    Clear the default model so OpenRouter auto-bootstrap picks
+                the best free model on next run (requires providers.openrouter.api_key)
 
 Examples:
-  picoclaw model                    # Show current default model
-  picoclaw model gpt-5.2           # Set gpt-5.2 as default
-  picoclaw model claude-sonnet-4.6 # Set claude-sonnet-4.6 as default
-  picoclaw model local-model       # Set local VLLM server as default
-
-Note: 'local-model' is a special value for using a local VLLM server
-(running at localhost:8000 by default) which does not require an API key.`,
+  picoclawx model                        # show current default + all models
+  picoclawx model list                   # list all configured models
+  picoclawx model use my-gpt4o           # set my-gpt4o as default
+  picoclawx model use openrouter         # switch to OpenRouter auto-bootstrap`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			configPath := internal.GetConfigPath()
-
-			// Load current config
 			cfg, err := config.LoadConfig(configPath)
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
-
 			if len(args) == 0 {
-				// Show current default model
-				showCurrentModel(cfg)
+				printCurrentModel(cfg)
 				return nil
 			}
-
-			// Set new default model
-			modelName := args[0]
-			return setDefaultModel(configPath, cfg, modelName)
+			return useModel(configPath, cfg, args[0])
 		},
 	}
 
+	cmd.AddCommand(newListCommand(), newUseCommand())
 	return cmd
 }
 
-func showCurrentModel(cfg *config.Config) {
-	defaultModel := cfg.Agents.Defaults.ModelName
-	if defaultModel == "" {
-		defaultModel = cfg.Agents.Defaults.Model
-	}
-
-	if defaultModel == "" {
-		fmt.Println("No default model is currently set.")
-		fmt.Println("\nAvailable models in your config:")
-		listAvailableModels(cfg)
-	} else {
-		fmt.Printf("Current default model: %s\n", defaultModel)
-		fmt.Println("\nAvailable models in your config:")
-		listAvailableModels(cfg)
+func newListCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all configured models",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadConfig(internal.GetConfigPath())
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+			printModelList(cfg)
+			return nil
+		},
 	}
 }
 
-func listAvailableModels(cfg *config.Config) {
-	if len(cfg.ModelList) == 0 {
-		fmt.Println("  No models configured in model_list")
+func newUseCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "use <model_name>",
+		Short: "Set the default model",
+		Long: `Set the default model by its model_name from model_list.
+
+Use 'openrouter' to clear the default and let OpenRouter auto-bootstrap
+pick the best free model on next run.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			configPath := internal.GetConfigPath()
+			cfg, err := config.LoadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+			return useModel(configPath, cfg, args[0])
+		},
+	}
+}
+
+// printCurrentModel shows the active default and the full model list.
+func printCurrentModel(cfg *config.Config) {
+	current := cfg.Agents.Defaults.GetModelName()
+	if current == "" {
+		fmt.Println("Default model: (none — OpenRouter auto-bootstrap will run on next start)")
+	} else {
+		fmt.Printf("Default model: %s\n", current)
+		// Show the underlying model string if available
+		for _, m := range cfg.ModelList {
+			if m.ModelName == current {
+				fmt.Printf("  → %s\n", m.Model)
+				break
+			}
+		}
+	}
+	fmt.Println()
+	printModelList(cfg)
+}
+
+// printModelList prints all models from model_list, marking the active default.
+func printModelList(cfg *config.Config) {
+	current := cfg.Agents.Defaults.GetModelName()
+	hasOR := cfg.Providers.OpenRouter.APIKey != ""
+
+	// Collect user-defined models (exclude bootstrap-injected entries)
+	type row struct {
+		name   string
+		model  string
+		hasKey bool
+	}
+	var rows []row
+	seen := map[string]bool{}
+	for _, m := range cfg.ModelList {
+		if seen[m.ModelName] {
+			continue
+		}
+		seen[m.ModelName] = true
+		rows = append(rows, row{m.ModelName, m.Model, m.APIKey != ""})
+	}
+
+	if len(rows) == 0 && !hasOR {
+		fmt.Println("No models configured.")
+		fmt.Println("Add entries to model_list in config.json, or set providers.openrouter.api_key")
+		fmt.Println("for automatic free model selection.")
 		return
 	}
 
-	defaultModel := cfg.Agents.Defaults.ModelName
-	if defaultModel == "" {
-		defaultModel = cfg.Agents.Defaults.Model
+	fmt.Println("Configured models:")
+	for _, r := range rows {
+		marker := "  "
+		if r.name == current {
+			marker = "▶ "
+		}
+		keyStatus := ""
+		if !r.hasKey {
+			keyStatus = "  (no api_key)"
+		}
+		fmt.Printf("%s%-30s  %s%s\n", marker, r.name, r.model, keyStatus)
 	}
 
-	for _, model := range cfg.ModelList {
-		marker := "  "
-		if model.ModelName == defaultModel {
-			marker = "> "
+	if hasOR {
+		fmt.Println()
+		if current == "" {
+			fmt.Println("▶ openrouter  (auto-bootstrap active — best free model selected at startup)")
+		} else {
+			fmt.Println("  openrouter  (available — run 'model use openrouter' to switch)")
 		}
-		if model.APIKey == "" {
-			continue
-		}
-		fmt.Printf("%s- %s (%s)\n", marker, model.ModelName, model.Model)
 	}
+
+	fmt.Println()
+	fmt.Println("Use 'picoclawx model use <name>' to change the default.")
 }
 
-func setDefaultModel(configPath string, cfg *config.Config, modelName string) error {
-	// Validate that the model exists in model_list
-	modelFound := false
-	for _, model := range cfg.ModelList {
-		if model.APIKey != "" && model.ModelName == modelName {
-			modelFound = true
+// useModel validates and persists the new default model.
+func useModel(configPath string, cfg *config.Config, name string) error {
+	// Strip bootstrap entries before saving so they don't get persisted.
+	config.StripBootstrappedModels(cfg)
+
+	old := cfg.Agents.Defaults.GetModelName()
+	if old == "" {
+		old = "(openrouter auto)"
+	}
+
+	if strings.ToLower(name) == orAutoAlias {
+		// Clear model_name → bootstrap will run on next start
+		cfg.Agents.Defaults.ModelName = ""
+		cfg.Agents.Defaults.Model = ""
+		if err := save(configPath, cfg); err != nil {
+			return err
+		}
+		fmt.Printf("✓ Default model cleared (was: %s)\n", old)
+		fmt.Println("  OpenRouter auto-bootstrap will pick the best free model on next start.")
+		return nil
+	}
+
+	// Validate the name exists in model_list with an api_key
+	found := false
+	for _, m := range cfg.ModelList {
+		if m.ModelName == name {
+			if m.APIKey == "" {
+				return fmt.Errorf("model %q has no api_key configured", name)
+			}
+			found = true
 			break
 		}
 	}
-
-	if !modelFound && modelName != LocalModel {
-		return fmt.Errorf("cannot found model '%s' in config", modelName)
+	if !found {
+		fmt.Printf("Model %q not found in model_list. Available models:\n\n", name)
+		printModelList(cfg)
+		return fmt.Errorf("unknown model %q", name)
 	}
 
-	// Update the default model
-	// Clear old model field and set new model_name
-	oldModel := cfg.Agents.Defaults.ModelName
-	if oldModel == "" {
-		oldModel = cfg.Agents.Defaults.Model
+	cfg.Agents.Defaults.ModelName = name
+	cfg.Agents.Defaults.Model = ""
+	if err := save(configPath, cfg); err != nil {
+		return err
 	}
-
-	cfg.Agents.Defaults.ModelName = modelName
-	cfg.Agents.Defaults.Model = "" // Clear deprecated field
-
-	// Save config back to file
-	if err := config.SaveConfig(configPath, cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-
-	fmt.Printf("✓ Default model changed from '%s' to '%s'\n",
-		formatModelName(oldModel), modelName)
-	fmt.Println("\nThe new default model will be used for all agent interactions.")
-
+	fmt.Printf("✓ Default model: %s → %s\n", old, name)
 	return nil
 }
 
-func formatModelName(name string) string {
-	if name == "" {
-		return "(none)"
+func save(configPath string, cfg *config.Config) error {
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
 	}
-	return name
+	config.InjectProvidersPlaceholder(configPath)
+	return nil
 }

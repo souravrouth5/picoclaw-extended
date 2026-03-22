@@ -962,6 +962,7 @@ func (al *AgentLoop) runAgentLoop(
 	}
 
 	// 8. Log response
+	finalContent = utils.StripHTMLArtifacts(finalContent)
 	responsePreview := utils.Truncate(finalContent, 120)
 	logger.InfoCF("agent", fmt.Sprintf("Response: %s", responsePreview),
 		map[string]any{
