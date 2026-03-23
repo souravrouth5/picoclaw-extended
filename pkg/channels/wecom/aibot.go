@@ -163,6 +163,7 @@ func NewWeComAIBotChannel(
 	}
 
 	base := channels.NewBaseChannel("wecom_aibot", cfg, messageBus, cfg.AllowFrom,
+		channels.WithAdminList(cfg.AdminFrom),
 		channels.WithMaxMessageLength(2048),
 		channels.WithReasoningChannelID(cfg.ReasoningChannelID),
 	)
