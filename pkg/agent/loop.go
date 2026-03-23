@@ -931,8 +931,8 @@ func (al *AgentLoop) runAgentLoop(
 		return "", err
 	}
 
-	// If last tool had ForUser content and we already sent it, we might not need to send final response
-	// This is controlled by the tool's Silent flag and ForUser content
+	// Strip HTML artifacts (e.g. <details> metadata blocks) before any further use
+	finalContent = utils.StripHTMLArtifacts(finalContent)
 
 	// 4. Handle empty response
 	if finalContent == "" {
@@ -962,7 +962,6 @@ func (al *AgentLoop) runAgentLoop(
 	}
 
 	// 8. Log response
-	finalContent = utils.StripHTMLArtifacts(finalContent)
 	responsePreview := utils.Truncate(finalContent, 120)
 	logger.InfoCF("agent", fmt.Sprintf("Response: %s", responsePreview),
 		map[string]any{
@@ -1270,7 +1269,7 @@ func (al *AgentLoop) runLLMIteration(
 
 			// If we were streaming, finalize the message (sends the permanent message)
 			if streamer != nil {
-				if err := streamer.Finalize(ctx, finalContent); err != nil {
+				if err := streamer.Finalize(ctx, utils.StripHTMLArtifacts(finalContent)); err != nil {
 					logger.WarnCF("agent", "Stream finalize failed", map[string]any{
 						"error": err.Error(),
 					})
