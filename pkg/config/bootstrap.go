@@ -129,9 +129,26 @@ func injectFreeModels(cfg *Config, models []ormodels.ModelInfo, apiKey string) {
 	}
 }
 
+// fallbackFreeModel is injected when the OpenRouter API is unreachable at
+// startup so the bot can still respond. It uses a well-known stable free model.
+const fallbackFreeModelID = "deepseek/deepseek-r1-0528:free"
+
 func runBootstrap(cfg *Config) {
 	if err := bootstrapOpenRouter(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "picoclaw: openrouter bootstrap: %v\n", err)
+		// If bootstrap failed but we have an OR key and still no active model,
+		// inject a hardcoded fallback so the bot can still reply.
+		if resolveOpenRouterKey(cfg) != "" && !hasActiveModel(cfg) {
+			apiKey := resolveOpenRouterKey(cfg)
+			cfg.ModelList = append([]ModelConfig{{
+				ModelName:      orFreeDefaultAlias,
+				Model:          "openrouter/" + fallbackFreeModelID,
+				APIKey:         apiKey,
+				RequestTimeout: 90,
+			}}, cfg.ModelList...)
+			cfg.Agents.Defaults.ModelName = orFreeDefaultAlias
+			fmt.Fprintf(os.Stderr, "picoclaw: using fallback model %s\n", fallbackFreeModelID)
+		}
 	}
 }
 

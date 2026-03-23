@@ -11,8 +11,10 @@ import (
 )
 
 func init() {
-	// 仅在 /etc/resolv.conf 不存在时才覆盖（即 Android 环境）
-	if _, err := os.Stat("/etc/resolv.conf"); err == nil {
+	// Skip custom DNS if /etc/resolv.conf exists and is non-empty (functional system DNS).
+	// On Termux/Android, /etc/resolv.conf may exist but be empty or non-functional,
+	// so we check the file size rather than just existence.
+	if fi, err := os.Stat("/etc/resolv.conf"); err == nil && fi.Size() > 0 {
 		return
 	}
 

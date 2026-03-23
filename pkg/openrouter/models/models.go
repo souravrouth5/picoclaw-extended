@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -108,15 +109,24 @@ func FetchFreeModels(apiKey string) ([]ModelInfo, error) {
 // newHTTPClient returns an http.Client that uses the system cert pool when
 // available, and falls back to skipping TLS verification when the system pool
 // cannot be loaded (e.g. Termux without ca-certificates installed).
+// It uses net.DefaultResolver so it picks up any custom DNS resolver injected
+// at startup (e.g. the Android/Termux resolver in dns_noresolv.go).
 func newHTTPClient() *http.Client {
-	transport := &http.Transport{}
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Resolver:  net.DefaultResolver,
+	}
+	transport := &http.Transport{
+		DialContext: dialer.DialContext,
+	}
 	pool, err := x509.SystemCertPool()
 	if err != nil || pool == nil || pool.Equal(x509.NewCertPool()) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 	} else {
 		transport.TLSClientConfig = &tls.Config{RootCAs: pool}
 	}
-	return &http.Client{Timeout: 15 * time.Second, Transport: transport}
+	return &http.Client{Timeout: 30 * time.Second, Transport: transport}
 }
 
 // Classify assigns a tier based on model id/name and context length.

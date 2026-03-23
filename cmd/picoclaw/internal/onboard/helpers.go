@@ -62,9 +62,10 @@ func onboard(encrypt bool) {
 
 	var cfg *config.Config
 	if configExists {
-		// Load existing config but strip any runtime-injected bootstrap entries
-		// before saving, so re-running onboard doesn't permanently write them to disk.
-		cfg, err = config.LoadConfig(configPath)
+		// Load existing config without bootstrap side-effects so re-running
+		// onboard doesn't permanently write runtime-injected entries to disk
+		// or expand the providers section with empty keys.
+		cfg, err = config.LoadConfigRaw(configPath)
 		if err != nil {
 			fmt.Printf("Error loading existing config: %v\n", err)
 			os.Exit(1)

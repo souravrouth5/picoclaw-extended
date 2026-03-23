@@ -914,6 +914,33 @@ type MCPConfig struct {
 	Servers map[string]MCPServerConfig `json:"servers,omitempty"`
 }
 
+// LoadConfigRaw loads config from disk without running bootstrap, env overrides,
+// or provider credential inheritance. Used by onboard to avoid side-effects
+// that would pollute the saved config (e.g. expanded providers section).
+func LoadConfigRaw(path string) (*Config, error) {
+	cfg := DefaultConfig()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cfg, nil
+		}
+		return nil, err
+	}
+
+	var tmp Config
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return nil, err
+	}
+	if len(tmp.ModelList) > 0 {
+		cfg.ModelList = nil
+	}
+	if err := json.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
 func LoadConfig(path string) (*Config, error) {
 	cfg := DefaultConfig()
 
@@ -1144,10 +1171,26 @@ func expandHome(path string) string {
 	}
 	if path[0] == '~' {
 		home, _ := os.UserHomeDir()
-		if len(path) > 1 && path[1] == '/' {
-			return home + path[1:]
+		if len(path) > 1 && (path[1] == '/' || path[1] == '\\') {
+			return filepath.Join(home, path[2:])
 		}
 		return home
+	}
+	// Convert Windows absolute paths (e.g. C:\Users\...) to the current OS equivalent
+	// when the config was generated on a different OS. Detect by checking for a
+	// Windows drive letter prefix on a non-Windows host.
+	if len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
+		// This is a Windows absolute path. On non-Windows, replace it with
+		// the user's home dir joined with the last path component (.picoclaw/workspace).
+		if os.PathSeparator != '\\' {
+			// Extract the meaningful suffix after the drive+home (best-effort).
+			// Walk backwards to find ".picoclaw" and use everything from there.
+			normalized := strings.ReplaceAll(path, "\\", "/")
+			if idx := strings.Index(normalized, "/.picoclaw/"); idx != -1 {
+				home, _ := os.UserHomeDir()
+				return filepath.Join(home, normalized[idx+1:])
+			}
+		}
 	}
 	return path
 }

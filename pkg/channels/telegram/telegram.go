@@ -3,6 +3,8 @@ package telegram
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -18,6 +20,7 @@ import (
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
+	"github.com/valyala/fasthttp"
 
 	"github.com/sipeed/picoclaw/pkg/bus"
 	"github.com/sipeed/picoclaw/pkg/channels"
@@ -55,6 +58,22 @@ type TelegramChannel struct {
 	commandRegCancel context.CancelFunc
 }
 
+// newTelegoFasthttpClient returns a fasthttp.Client that skips TLS verification
+// when the system cert pool is unavailable (e.g. Termux/Android without ca-certificates).
+// On systems with a valid cert pool, normal TLS verification is used.
+func newTelegoFasthttpClient() *fasthttp.Client {
+	tlsCfg := &tls.Config{}
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil || pool.Equal(x509.NewCertPool()) {
+		tlsCfg.InsecureSkipVerify = true //nolint:gosec
+	} else {
+		tlsCfg.RootCAs = pool
+	}
+	return &fasthttp.Client{
+		TLSConfig: tlsCfg,
+	}
+}
+
 func NewTelegramChannel(cfg *config.Config, bus *bus.MessageBus) (*TelegramChannel, error) {
 	var opts []telego.BotOption
 	telegramCfg := cfg.Channels.Telegram
@@ -82,6 +101,7 @@ func NewTelegramChannel(cfg *config.Config, bus *bus.MessageBus) (*TelegramChann
 		opts = append(opts, telego.WithAPIServer(baseURL))
 	}
 	opts = append(opts, telego.WithLogger(logger.NewLogger("telego")))
+	opts = append(opts, telego.WithFastHTTPClient(newTelegoFasthttpClient()))
 
 	bot, err := telego.NewBot(telegramCfg.Token, opts...)
 	if err != nil {
