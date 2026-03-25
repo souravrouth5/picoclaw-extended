@@ -854,6 +854,16 @@ type ToolsConfig struct {
 	Subagent        ToolConfig         `json:"subagent"                                                 envPrefix:"PICOCLAW_TOOLS_SUBAGENT_"`
 	WebFetch        ToolConfig         `json:"web_fetch"                                                envPrefix:"PICOCLAW_TOOLS_WEB_FETCH_"`
 	WriteFile       ToolConfig         `json:"write_file"                                               envPrefix:"PICOCLAW_TOOLS_WRITE_FILE_"`
+	// Extended tools
+	DiffFile        ToolConfig         `json:"diff_file"    envPrefix:"PICOCLAW_TOOLS_DIFF_FILE_"`
+	EnvGet          ToolConfig         `json:"env_get"      envPrefix:"PICOCLAW_TOOLS_ENV_GET_"`
+	FileManage      ToolConfig         `json:"file_manage"  envPrefix:"PICOCLAW_TOOLS_FILE_MANAGE_"`
+	Git             ToolConfig         `json:"git"          envPrefix:"PICOCLAW_TOOLS_GIT_"`
+	GrepFile        ToolConfig         `json:"grep_file"    envPrefix:"PICOCLAW_TOOLS_GREP_FILE_"`
+	HTTPRequest     ToolConfig         `json:"http_request" envPrefix:"PICOCLAW_TOOLS_HTTP_REQUEST_"`
+	JSONQuery       ToolConfig         `json:"json_query"   envPrefix:"PICOCLAW_TOOLS_JSON_QUERY_"`
+	Notify          ToolConfig         `json:"notify"       envPrefix:"PICOCLAW_TOOLS_NOTIFY_"`
+	Remember        ToolConfig         `json:"remember"     envPrefix:"PICOCLAW_TOOLS_REMEMBER_"`
 }
 
 type SearchCacheConfig struct {
@@ -1393,6 +1403,25 @@ func (t *ToolsConfig) IsToolEnabled(name string) bool {
 		return t.WriteFile.Enabled
 	case "mcp":
 		return t.MCP.Enabled
+	// Extended tools
+	case "diff_file":
+		return t.DiffFile.Enabled
+	case "env_get":
+		return t.EnvGet.Enabled
+	case "file_manage":
+		return t.FileManage.Enabled
+	case "git":
+		return t.Git.Enabled
+	case "grep_file":
+		return t.GrepFile.Enabled
+	case "http_request":
+		return t.HTTPRequest.Enabled
+	case "json_query":
+		return t.JSONQuery.Enabled
+	case "notify":
+		return t.Notify.Enabled
+	case "remember":
+		return t.Remember.Enabled
 	default:
 		return true
 	}

@@ -335,6 +335,34 @@ func DefaultConfig() *Config {
 			WriteFile: ToolConfig{
 				Enabled: true,
 			},
+			// Extended tools
+			DiffFile: ToolConfig{
+				Enabled: true,
+			},
+			EnvGet: ToolConfig{
+				Enabled: true,
+			},
+			FileManage: ToolConfig{
+				Enabled: true,
+			},
+			Git: ToolConfig{
+				Enabled: true,
+			},
+			GrepFile: ToolConfig{
+				Enabled: true,
+			},
+			HTTPRequest: ToolConfig{
+				Enabled: true,
+			},
+			JSONQuery: ToolConfig{
+				Enabled: true,
+			},
+			Notify: ToolConfig{
+				Enabled: true,
+			},
+			Remember: ToolConfig{
+				Enabled: true,
+			},
 		},
 		Heartbeat: HeartbeatConfig{
 			Enabled:  true,

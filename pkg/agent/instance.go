@@ -99,6 +99,37 @@ func NewAgentInstance(
 		toolsRegistry.Register(tools.NewAppendFileTool(workspace, restrict, allowWritePaths))
 	}
 
+	// Extended tools
+	if cfg.Tools.IsToolEnabled("grep_file") {
+		toolsRegistry.Register(tools.NewGrepTool(workspace, restrict))
+	}
+	if cfg.Tools.IsToolEnabled("file_manage") {
+		toolsRegistry.Register(tools.NewFileManageTool(workspace, restrict))
+	}
+	if cfg.Tools.IsToolEnabled("http_request") {
+		toolsRegistry.Register(tools.NewHTTPRequestTool())
+	}
+	if cfg.Tools.IsToolEnabled("diff_file") {
+		toolsRegistry.Register(tools.NewDiffTool(workspace, restrict))
+	}
+	if cfg.Tools.IsToolEnabled("env_get") {
+		toolsRegistry.Register(tools.NewEnvTool())
+	}
+	if cfg.Tools.IsToolEnabled("notify") {
+		toolsRegistry.Register(tools.NewNotifyTool())
+	}
+	if cfg.Tools.IsToolEnabled("json_query") {
+		toolsRegistry.Register(tools.NewJSONQueryTool(workspace, restrict))
+	}
+	if cfg.Tools.IsToolEnabled("git") {
+		toolsRegistry.Register(tools.NewGitTool(workspace))
+	}
+
+	memoryStore := NewMemoryStore(workspace)
+	if cfg.Tools.IsToolEnabled("remember") {
+		toolsRegistry.Register(tools.NewRememberTool(memoryStore))
+	}
+
 	sessionsDir := filepath.Join(workspace, "sessions")
 	sessions := initSessionStore(sessionsDir)
 
