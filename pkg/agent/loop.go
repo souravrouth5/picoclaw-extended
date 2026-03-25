@@ -67,6 +67,7 @@ type processOptions struct {
 	EnableSummary     bool     // Whether to trigger summarization
 	SendResponse      bool     // Whether to send response via bus
 	NoHistory         bool     // If true, don't load session history (for heartbeat)
+	OnChunk           func(string) // Called with accumulated text on each streaming chunk (CLI use)
 }
 
 const (
@@ -663,6 +664,51 @@ func (al *AgentLoop) ProcessDirect(
 	return al.ProcessDirectWithChannel(ctx, content, sessionKey, "cli", "direct")
 }
 
+// ProcessDirectStream is like ProcessDirect but calls onChunk with accumulated
+// text on each streaming token. Falls back to non-streaming if the provider
+// doesn't implement StreamingProvider.
+func (al *AgentLoop) ProcessDirectStream(
+	ctx context.Context,
+	content, sessionKey string,
+	onChunk func(string),
+) (string, error) {
+	if err := al.ensureMCPInitialized(ctx); err != nil {
+		return "", err
+	}
+
+	msg := bus.InboundMessage{
+		Channel:    "cli",
+		SenderID:   "cron",
+		ChatID:     "direct",
+		Content:    content,
+		SessionKey: sessionKey,
+	}
+
+	// Route and build opts with OnChunk injected
+	route, agentInst, routeErr := al.resolveMessageRoute(msg)
+	if routeErr != nil {
+		return "", routeErr
+	}
+	if tool, ok := agentInst.Tools.Get("message"); ok {
+		if resetter, ok := tool.(interface{ ResetSentInRound() }); ok {
+			resetter.ResetSentInRound()
+		}
+	}
+	sessionKey = resolveScopeKey(route, msg.SessionKey)
+
+	opts := processOptions{
+		SessionKey:      sessionKey,
+		Channel:         "cli",
+		ChatID:          "direct",
+		UserMessage:     content,
+		DefaultResponse: defaultResponse,
+		EnableSummary:   true,
+		SendResponse:    false,
+		OnChunk:         onChunk,
+	}
+	return al.runAgentLoop(ctx, agentInst, opts)
+}
+
 func (al *AgentLoop) ProcessDirectWithChannel(
 	ctx context.Context,
 	content, sessionKey, channel, chatID string,
@@ -1136,6 +1182,14 @@ func (al *AgentLoop) runLLMIteration(
 					func(accumulated string) {
 						streamer.Update(ctx, accumulated)
 					},
+				)
+			}
+
+			// CLI streaming: no bus streamer but caller provided an OnChunk callback
+			if opts.OnChunk != nil && streamProvider != nil {
+				return streamProvider.ChatStream(
+					ctx, messages, providerToolDefs, activeModel, llmOpts,
+					opts.OnChunk,
 				)
 			}
 
