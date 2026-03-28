@@ -279,6 +279,10 @@ type AgentDefaults struct {
 	Routing                   *RoutingConfig     `json:"routing,omitempty"`
 	ToolFeedback              ToolFeedbackConfig `json:"tool_feedback,omitempty"`
 	LogLevel                  string             `json:"log_level,omitempty"             env:"PICOCLAW_LOG_LEVEL"`
+	// If true, the agent loop bypasses native tool calling in the provider.
+	// Tool definitions are injected as text descriptions into the system prompt,
+	// and the LLM's text response is parsed for <tool_call> XML blocks.
+	ForceXMLToolCalling bool `json:"force_xml_tool_calling" env:"PICOCLAW_AGENTS_DEFAULTS_FORCE_XML_TOOL_CALLING"`
 }
 
 const (

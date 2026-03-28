@@ -23,6 +23,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/channels"
 	"github.com/sipeed/picoclaw/pkg/commands"
 	"github.com/sipeed/picoclaw/pkg/config"
+	"github.com/sipeed/picoclaw/pkg/agent/xmltools"
 	"github.com/sipeed/picoclaw/pkg/constants"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/media"
@@ -1100,6 +1101,7 @@ func (al *AgentLoop) runLLMIteration(
 	// tool chain doesn't switch models mid-way through.
 	activeCandidates, activeModel := al.selectCandidates(agent, opts.UserMessage, messages)
 
+	var cliStreamedPrefix string
 	for iteration < agent.MaxIterations {
 		iteration++
 
@@ -1171,17 +1173,59 @@ func (al *AgentLoop) runLLMIteration(
 			}
 		}
 
+		// XML Tool Calling: By-pass native tool calling by passing tools as text
+		// and expecting XML in return.
+		if agent.ForceXMLToolCalling && len(providerToolDefs) > 0 {
+			toolDescs := xmltools.ToolDefsToDescriptions(providerToolDefs)
+			toolPrompt := xmltools.BuildOrchestratorToolPrompt(toolDescs)
+			messages = xmltools.InjectToolPrompt(messages, toolPrompt)
+			
+			// Wipe native tool definitions so provider doesn't block request
+			providerToolDefs = nil
+		}
+
 		callLLM := func() (*providers.LLMResponse, error) {
 			al.activeRequests.Add(1)
 			defer al.activeRequests.Done()
+
+			// Wrap callbacks to cleanly hide raw XML generation from users' view 
+			// the instant a tool string is detected during ForceXMLToolCalling mode.
+			wrapCallback := func(cb func(string)) func(string) {
+				if cb == nil || !agent.ForceXMLToolCalling {
+					return cb
+				}
+				stopIdx := -1
+				return func(accumulated string) {
+					if stopIdx >= 0 {
+						if stopIdx <= len(accumulated) {
+							cb(cliStreamedPrefix + accumulated[:stopIdx])
+						}
+						return
+					}
+					idx := strings.Index(accumulated, "<tool_call>")
+					if idx != -1 {
+						stopIdx = idx
+						cb(cliStreamedPrefix + accumulated[:idx])
+						return
+					}
+					// Also prevent showing tool_responses if the LLM illegally echoes them
+					idxMsg := strings.Index(accumulated, "<tool_response")
+					if idxMsg != -1 {
+						stopIdx = idxMsg
+						cb(cliStreamedPrefix + accumulated[:idxMsg])
+						return
+					}
+					cb(cliStreamedPrefix + accumulated)
+				}
+			}
 
 			// Use streaming when available (streamer obtained, provider supports it)
 			if streamer != nil && streamProvider != nil {
 				return streamProvider.ChatStream(
 					ctx, messages, providerToolDefs, activeModel, llmOpts,
-					func(accumulated string) {
+					wrapCallback(func(accumulated string) {
 						streamer.Update(ctx, accumulated)
-					},
+					}),
 				)
 			}
 
@@ -1189,7 +1233,7 @@ func (al *AgentLoop) runLLMIteration(
 			if opts.OnChunk != nil && streamProvider != nil {
 				return streamProvider.ChatStream(
 					ctx, messages, providerToolDefs, activeModel, llmOpts,
-					opts.OnChunk,
+					wrapCallback(opts.OnChunk),
 				)
 			}
 
@@ -1222,6 +1266,33 @@ func (al *AgentLoop) runLLMIteration(
 		for retry := 0; retry <= maxRetries; retry++ {
 			response, err = callLLM()
 			if err == nil {
+				// Intercept and parse XML tool calls if enabled
+				if agent.ForceXMLToolCalling && response != nil && response.Content != "" {
+					safeContent := response.Content
+					if idx := strings.Index(safeContent, "<tool_call>"); idx != -1 {
+						safeContent = safeContent[:idx]
+					}
+					if idx := strings.Index(safeContent, "<tool_response"); idx != -1 {
+						safeContent = safeContent[:idx]
+					}
+					cliStreamedPrefix += safeContent
+
+					parsedCalls := xmltools.ParseToolCalls(response.Content)
+					// Synthesize native ToolCalls for the execution loop (these will NOT be saved to session history)
+					for i, pc := range parsedCalls {
+						argsJson, _ := json.Marshal(pc.Arguments)
+						response.ToolCalls = append(response.ToolCalls, providers.ToolCall{
+							ID:   fmt.Sprintf("xml_%d_%d_%d", iteration, retry, i),
+							Type: "function",
+							Name: pc.Name,
+							Function: &providers.FunctionCall{
+								Name:      pc.Name,
+								Arguments: string(argsJson),
+							},
+							Arguments: pc.Arguments,
+						})
+					}
+				}
 				break
 			}
 
@@ -1369,27 +1440,29 @@ func (al *AgentLoop) runLLMIteration(
 			Content:          response.Content,
 			ReasoningContent: response.ReasoningContent,
 		}
-		for _, tc := range normalizedToolCalls {
-			argumentsJSON, _ := json.Marshal(tc.Arguments)
-			// Copy ExtraContent to ensure thought_signature is persisted for Gemini 3
-			extraContent := tc.ExtraContent
-			thoughtSignature := ""
-			if tc.Function != nil {
-				thoughtSignature = tc.Function.ThoughtSignature
-			}
+		if !agent.ForceXMLToolCalling {
+			for _, tc := range normalizedToolCalls {
+				argumentsJSON, _ := json.Marshal(tc.Arguments)
+				// Copy ExtraContent to ensure thought_signature is persisted for Gemini 3
+				extraContent := tc.ExtraContent
+				thoughtSignature := ""
+				if tc.Function != nil {
+					thoughtSignature = tc.Function.ThoughtSignature
+				}
 
-			assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
-				ID:   tc.ID,
-				Type: "function",
-				Name: tc.Name,
-				Function: &providers.FunctionCall{
-					Name:             tc.Name,
-					Arguments:        string(argumentsJSON),
+				assistantMsg.ToolCalls = append(assistantMsg.ToolCalls, providers.ToolCall{
+					ID:   tc.ID,
+					Type: "function",
+					Name: tc.Name,
+					Function: &providers.FunctionCall{
+						Name:             tc.Name,
+						Arguments:        string(argumentsJSON),
+						ThoughtSignature: thoughtSignature,
+					},
+					ExtraContent:     extraContent,
 					ThoughtSignature: thoughtSignature,
-				},
-				ExtraContent:     extraContent,
-				ThoughtSignature: thoughtSignature,
-			})
+				})
+			}
 		}
 		messages = append(messages, assistantMsg)
 
@@ -1536,10 +1609,18 @@ func (al *AgentLoop) runLLMIteration(
 				contentForLLM = r.result.Err.Error()
 			}
 
-			toolResultMsg := providers.Message{
-				Role:       "tool",
-				Content:    contentForLLM,
-				ToolCallID: r.tc.ID,
+			var toolResultMsg providers.Message
+			if agent.ForceXMLToolCalling {
+				toolResultMsg = providers.Message{
+					Role:    "user",
+					Content: fmt.Sprintf("<tool_response name=\"%s\">\n%s\n</tool_response>", r.tc.Name, contentForLLM),
+				}
+			} else {
+				toolResultMsg = providers.Message{
+					Role:       "tool",
+					Content:    contentForLLM,
+					ToolCallID: r.tc.ID,
+				}
 			}
 			messages = append(messages, toolResultMsg)
 

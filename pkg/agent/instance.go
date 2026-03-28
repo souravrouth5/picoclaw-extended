@@ -48,6 +48,9 @@ type AgentInstance struct {
 	// LightCandidates holds the resolved provider candidates for the light model.
 	// Pre-computed at agent creation to avoid repeated model_list lookups at runtime.
 	LightCandidates []providers.FallbackCandidate
+
+	// If true, bypass native provider tool calling and intercept tools via XML parsed out of provider's text responses.
+	ForceXMLToolCalling bool
 }
 
 // NewAgentInstance creates an agent instance from config.
@@ -225,6 +228,7 @@ func NewAgentInstance(
 		Candidates:                candidates,
 		Router:                    router,
 		LightCandidates:           lightCandidates,
+		ForceXMLToolCalling:       defaults.ForceXMLToolCalling,
 	}
 }
 

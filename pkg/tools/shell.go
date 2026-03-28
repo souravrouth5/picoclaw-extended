@@ -182,6 +182,10 @@ func (t *ExecTool) Parameters() map[string]any {
 				"type":        "string",
 				"description": "Optional working directory for the command",
 			},
+			"shell": map[string]any{
+				"type":        "string",
+				"description": "Optional shell to use (e.g. 'cmd' or 'powershell' on Windows, 'sh' or 'bash' on Unix)",
+			},
 		},
 		"required": []string{"command"},
 	}
@@ -263,12 +267,40 @@ func (t *ExecTool) Execute(ctx context.Context, args map[string]any) *ToolResult
 	}
 	defer cancel()
 
-	var cmd *exec.Cmd
+	shellCmd := "sh"
+	shellArg := "-c"
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(cmdCtx, "powershell", "-NoProfile", "-NonInteractive", "-Command", command)
-	} else {
-		cmd = exec.CommandContext(cmdCtx, "sh", "-c", command)
+		shellCmd = os.Getenv("COMSPEC")
+		if shellCmd == "" {
+			shellCmd = "cmd.exe"
+		}
+		shellArg = "/c"
 	}
+
+	if s, ok := args["shell"].(string); ok && s != "" {
+		sLower := strings.ToLower(s)
+		if runtime.GOOS == "windows" {
+			if strings.Contains(sLower, "powershell") || strings.Contains(sLower, "pwsh") {
+				shellCmd = "powershell"
+				shellArg = "-Command"
+			} else if strings.Contains(sLower, "cmd") {
+				shellCmd = "cmd.exe"
+				shellArg = "/c"
+			} else {
+				shellCmd = s
+				shellArg = "/c"
+			}
+		} else {
+			shellCmd = s
+			shellArg = "-c"
+		}
+	}
+
+	cmd := exec.CommandContext(cmdCtx, shellCmd, shellArg, command)
+	if runtime.GOOS == "windows" && (shellCmd == "powershell" || shellCmd == "pwsh") {
+		cmd = exec.CommandContext(cmdCtx, shellCmd, "-NoProfile", "-NonInteractive", "-Command", command)
+	}
+
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
